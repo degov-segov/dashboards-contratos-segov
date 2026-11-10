@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import pandas as pd
 
-ORIGEM = Path("planilhas")
+ORIGEM = Path("Planilhas")
 DESTINO = Path("site/dados")
 DESTINO.mkdir(parents=True, exist_ok=True)
 

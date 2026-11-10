@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard de Execução Contratual</title>
+<style>
+  body { font-family: Segoe UI, Arial, sans-serif; margin: 32px; color: #1f2937; background: #f8fafc; }
+  h1 { margin: 0 0 4px; font-size: 26px; }
+  #atualizado { color: #64748b; margin-bottom: 24px; }
+  table { border-collapse: collapse; width: 100%; background: #fff; }
+  th, td { border: 1px solid #e2e8f0; padding: 8px 12px; text-align: left; font-size: 14px; }
+  th { background: #1e3a5f; color: #fff; }
+  tr:nth-child(even) td { background: #f1f5f9; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  #erro { color: #b91c1c; }
+</style>
+</head>
+<body>
+  <h1>Dashboard de Execução Contratual</h1>
+  <div id="atualizado">Carregando dados…</div>
+  <div id="erro"></div>
+  <table id="tabela"></table>
+
+<script>
+  // Nome do JSON = nome da planilha em /planilhas (contrato-001.xlsx -> contrato-001.json)
+  const ARQUIVO = 'dados/contrato-001.json';
+
+  const moeda = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const ehData = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v);
+
+  fetch(ARQUIVO + '?v=' + Date.now())
+    .then(r => { if (!r.ok) throw new Error('Arquivo de dados não encontrado: ' + ARQUIVO); return r.json(); })
+    .then(({ atualizadoEm, dados }) => {
+      document.getElementById('atualizado').textContent =
+        'Atualizado em ' + new Date(atualizadoEm).toLocaleString('pt-BR');
+      if (!dados.length) return;
+
+      const colunas = Object.keys(dados[0]);
+      const tabela = document.getElementById('tabela');
+      tabela.innerHTML =
+        '<thead><tr>' + colunas.map(c => `<th>${c}</th>`).join('') + '</tr></thead>' +
+        '<tbody>' + dados.map(linha => '<tr>' + colunas.map(c => {
+          const v = linha[c];
+          if (v === null || v === undefined) return '<td></td>';
+          if (typeof v === 'number') return `<td class="num">${moeda(v)}</td>`;
+          if (ehData(v)) return `<td>${new Date(v).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</td>`;
+          return `<td>${v}</td>`;
+        }).join('') + '</tr>').join('') + '</tbody>';
+    })
+    .catch(e => {
+      document.getElementById('atualizado').textContent = '';
+      document.getElementById('erro').textContent = e.message;
+    });
+</script>
+</body>
+</html>

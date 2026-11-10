@@ -5,173 +5,221 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Execução Contratual | SEGOV/TJCE</title>
 <style>
-  :root { --navy:#0b2f63; --line:#dfe7f1; --muted:#66758a; --bg:#f3f6fb; --verde:#1f9d68; --ambar:#b7791f; --verm:#b91c1c; }
-  * { box-sizing:border-box; }
-  body { font-family:"Segoe UI",Arial,sans-serif; margin:0; background:var(--bg); color:#10213d; }
-  header { background:linear-gradient(115deg,#082d61,#164f91); color:#fff; padding:26px 32px; }
-  header h1 { margin:0 0 6px; font-size:28px; }
-  header p { margin:0; opacity:.85; font-size:14px; }
-  main { max-width:1400px; margin:0 auto; padding:22px 32px 40px; }
-  h2 { font-size:18px; color:var(--navy); margin:26px 0 10px; }
-  .barra { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
-  select { font-size:15px; padding:8px 12px; border:1px solid #c9d5e5; border-radius:8px; background:#fff; min-width:340px; }
-  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin-top:14px; }
-  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
-  .card span { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
-  .card strong { display:block; font-size:19px; color:var(--navy); margin-top:4px; font-variant-numeric:tabular-nums; }
-  .card small { color:var(--muted); font-size:12px; }
-  .info { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-top:14px; font-size:14px; line-height:1.6; }
-  .tabela { overflow-x:auto; background:#fff; border:1px solid var(--line); border-radius:12px; }
+  :root {
+    --navy:#0b2f63; --azul:#1d4f91; --verde:#1f9d68; --verde-esc:#17744d; --ambar:#d08a00; --ambar-esc:#8a5a00;
+    --verm:#b91c1c; --cinza:#e6ebf2; --line:#dfe7f1; --muted:#66758a; --bg:#f3f6fb; --texto:#10213d;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:"Segoe UI",Arial,sans-serif; background:var(--bg); color:var(--texto); }
+  header { background:linear-gradient(115deg,#082d61,#164f91); color:#fff; }
+  .hwrap { max-width:1440px; margin:0 auto; padding:22px 32px; display:flex; align-items:center; gap:18px; }
+  .hwrap h1 { font-size:26px; }
+  .hwrap p { font-size:13px; opacity:.85; margin-top:4px; }
+  .espaco { flex:1; }
+  main { max-width:1440px; margin:0 auto; padding:22px 32px 48px; }
+  .secao { display:flex; align-items:center; gap:12px; margin:28px 0 12px; font-size:13px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#3d4b5f; }
+  .secao:after { content:""; flex:1; height:1px; background:var(--line); }
+  .btn { display:inline-flex; align-items:center; gap:6px; border:1px solid #c9d5e5; background:#fff; color:var(--navy); padding:9px 14px; border-radius:9px; font-weight:700; font-size:13px; cursor:pointer; }
+  .btn:hover { background:#eef4fb; }
+  select { font-size:14px; padding:9px 12px; border:1px solid #c9d5e5; border-radius:9px; background:#fff; color:var(--navy); font-weight:600; min-width:320px; }
+  .barra-topo { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+
+  /* Cards de indicadores */
+  .kpis { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; }
+  .kpis.k4 { grid-template-columns:repeat(4,1fr); }
+  .kpi { background:#fff; border:1px solid var(--line); border-top:4px solid var(--navy); border-radius:12px; padding:14px 16px; box-shadow:0 4px 14px rgba(29,54,88,.05); }
+  .kpi .rot { font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); }
+  .kpi .val { font-size:21px; font-weight:800; margin-top:6px; font-variant-numeric:tabular-nums; color:var(--navy); }
+  .kpi .sub { font-size:12px; color:var(--muted); margin-top:4px; line-height:1.4; }
+  .kpi.azul { border-top-color:var(--azul); } .kpi.azul .val { color:var(--azul); }
+  .kpi.verde { border-top-color:var(--verde); } .kpi.verde .val { color:var(--verde-esc); }
+  .kpi.ambar { border-top-color:var(--ambar); } .kpi.ambar .val { color:var(--ambar-esc); }
+  .kpi.verm { border-top-color:var(--verm); } .kpi.verm .val { color:var(--verm); }
+  .kpi.cinza { border-top-color:#94a3b8; } .kpi.cinza .val { color:#475569; }
+
+  /* Caixas */
+  .caixa { background:#fff; border:1px solid var(--line); border-radius:14px; padding:20px 22px; box-shadow:0 4px 14px rgba(29,54,88,.05); }
+  .ident { display:grid; grid-template-columns:1.4fr 1fr; gap:20px; }
+  .ident h2 { font-size:22px; color:var(--navy); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .ident .obj { color:#4b5b70; margin-top:6px; font-size:14px; line-height:1.5; }
+  .ident dl { display:grid; grid-template-columns:auto 1fr; gap:6px 14px; font-size:13px; }
+  .ident dt { color:var(--muted); } .ident dd { font-weight:600; }
+  .nota { font-size:12px; color:var(--muted); margin-top:10px; line-height:1.5; }
+
+  /* Termômetro */
+  .termo { margin-bottom:18px; } .termo:last-of-type { margin-bottom:0; }
+  .termo .lin { display:flex; justify-content:space-between; align-items:baseline; font-size:14px; margin-bottom:6px; }
+  .termo .pct { font-weight:800; font-size:17px; font-variant-numeric:tabular-nums; }
+  .trilho { position:relative; height:28px; background:var(--cinza); border-radius:8px; overflow:hidden; display:flex; gap:2px; }
+  .seg { height:100%; display:flex; align-items:center; justify-content:flex-end; padding:0 10px; color:#fff; font-size:12px; font-weight:700; white-space:nowrap; min-width:0; overflow:hidden; }
+  .seg:first-child { border-radius:8px 0 0 8px; } .seg:last-child { border-radius:0 8px 8px 0; } .seg:only-child { border-radius:8px; }
+  .seg.azul { background:linear-gradient(90deg,#0b2f63,#1d4f91); } .seg.verde { background:linear-gradient(90deg,#17744d,#1f9d68); }
+  .seg.ambar { background:var(--ambar); } .seg.cinza { background:#c5ceda; color:#334155; justify-content:center; }
+  .seg.estouro { background:var(--verm); }
+  .termo .ref { display:flex; justify-content:space-between; font-size:11px; color:#8a96a6; margin-top:4px; font-family:Consolas,monospace; }
+  .legenda { display:flex; flex-wrap:wrap; gap:18px; font-size:12px; color:#4b5b70; margin-top:12px; }
+  .legenda i { display:inline-block; width:11px; height:11px; border-radius:3px; margin-right:6px; vertical-align:-1px; }
+
+  /* Mini cards da composição */
+  .mini { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:16px; }
+  .mini div { border-radius:10px; padding:12px 14px; border:1px solid; }
+  .mini span { display:block; font-size:11px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; }
+  .mini strong { display:block; font-size:19px; margin-top:4px; font-variant-numeric:tabular-nums; }
+  .mini small { font-size:12px; opacity:.8; }
+  .m-verde { background:#e8f7f0; border-color:#b6e2cd !important; color:var(--verde-esc); }
+  .m-ambar { background:#fdf5e4; border-color:#ecd39c !important; color:var(--ambar-esc); }
+  .m-azul { background:#eaf1fa; border-color:#bcd0ea !important; color:var(--navy); }
+  .m-cinza { background:#f5f7fa; border-color:#dde3ea !important; color:#475569; }
+
+  /* Tabelas */
+  .tab { background:#fff; border:1px solid var(--line); border-radius:14px; overflow:hidden; box-shadow:0 4px 14px rgba(29,54,88,.05); }
+  .tab-tit { background:var(--navy); color:#fff; padding:13px 20px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+  .tab-tit b { font-size:15px; } .tab-tit span { font-size:12px; opacity:.8; }
+  .rolagem { overflow-x:auto; }
   table { border-collapse:collapse; width:100%; font-size:13px; }
-  th { background:var(--navy); color:#fff; text-align:left; padding:9px 10px; white-space:nowrap; }
-  td { border-top:1px solid var(--line); padding:8px 10px; vertical-align:top; }
-  tr:nth-child(even) td { background:#f8fafc; }
-  #geral td:first-child { white-space:nowrap; }
-  td.n { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
-  tr.neg td.n { color:var(--verm); }
-  tr.clicavel { cursor:pointer; } tr.clicavel:hover td { background:#eaf2fb; }
-  .tag { display:inline-block; font-size:11px; font-weight:700; padding:3px 8px; border-radius:999px; }
-  .vig { background:#e8f7f0; color:#14754e; } .enc { background:#fdecec; color:var(--verm); }
-  .pago { background:#e8f7f0; color:#14754e; } .aberto { background:#fbf3df; color:#8a6410; }
-  .vazio { color:var(--muted); font-style:italic; padding:14px; }
-  tfoot td { font-weight:700; background:#eef3f9 !important; }
-  #erro { color:var(--verm); }
+  th { background:#f6f8fb; color:#4b5b70; font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  td { padding:10px 12px; border-bottom:1px solid #eef2f7; vertical-align:top; }
+  td.n, th.n { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .mono { font-family:Consolas,monospace; font-size:12px; color:#4b5b70; }
+  .fraco { color:#8a96a6; font-size:11.5px; display:block; margin-top:2px; }
+  tr.anul td { background:#fdf6e6; }
+  tr.anul td:first-child { box-shadow:inset 4px 0 0 var(--ambar); }
+  tr.anul .valor { color:var(--verm); font-weight:700; }
+  tr.clic { cursor:pointer; } tr.clic:hover td { background:#eef4fb; }
+  tfoot td { background:#eef3f9; font-weight:700; border-top:2px solid var(--navy); }
+  .vinc { list-style:none; font-size:12.5px; line-height:1.55; }
+  .vinc .ok { color:var(--verde-esc); } .vinc .ab { color:var(--ambar-esc); }
+  .tag { display:inline-block; font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; white-space:nowrap; border:1px solid transparent; }
+  .t-vig, .t-pago { background:#e8f7f0; color:#14754e; border-color:#b6e2cd; }
+  .t-enc { background:#fdecec; color:var(--verm); border-color:#f3c0c0; }
+  .t-ab, .t-com { background:#fdf5e4; color:var(--ambar-esc); border-color:#ecd39c; }
+  .t-sem { background:#f1f4f8; color:#475569; border-color:#d5dce5; }
+  .t-anul { background:#fff; color:var(--verm); border-color:#f3c0c0; }
+  .t-neg { background:var(--verm); color:#fff; }
+  .minibar { display:flex; align-items:center; gap:8px; justify-content:flex-end; }
+  .minibar .tr { width:70px; height:7px; background:var(--cinza); border-radius:4px; overflow:hidden; }
+  .minibar .tr i { display:block; height:100%; background:var(--verde); border-radius:4px; }
+  #gTabela th, #gTabela td { padding:10px 9px; }
+  #gTabela td:nth-child(2) { min-width:190px; }
+  #gTabela .minibar .tr { width:44px; }
+  .vazio { color:var(--muted); font-style:italic; padding:18px 20px; }
+  .alerta { background:#fdf5e4; border:1px solid #ecd39c; color:var(--ambar-esc); border-radius:10px; padding:10px 14px; font-size:13px; margin-top:12px; }
+  #erro { color:var(--verm); font-weight:600; }
+  .oculto { display:none; }
+
+  @media (max-width:1100px) { .kpis { grid-template-columns:repeat(3,1fr); } .mini, .kpis.k4 { grid-template-columns:repeat(2,1fr); } .ident { grid-template-columns:1fr; } }
+  @media (max-width:640px) { .kpis, .mini, .kpis.k4 { grid-template-columns:1fr; } main, .hwrap { padding-left:16px; padding-right:16px; } select { min-width:0; width:100%; } }
 </style>
 </head>
 <body>
 <header>
-  <h1>Execução Contratual</h1>
-  <p>SEGOV / TJCE · <span id="atualizado">Carregando dados…</span></p>
+  <div class="hwrap">
+    <div><h1>Execução Contratual</h1><p>SEGOV / TJCE · <span id="atualizado">Carregando dados…</span></p></div>
+  </div>
 </header>
+
 <main>
   <div id="erro"></div>
 
-  <h2>Visão geral dos contratos</h2>
-  <div class="tabela"><table id="geral"></table></div>
+  <!-- ===================== VISÃO GERAL ===================== -->
+  <section id="vGeral">
+    <div class="secao">Consolidado dos contratos</div>
+    <div class="kpis k4" id="gKpis"></div>
+    <div class="secao">Contratos monitorados — clique para abrir o dashboard</div>
+    <div class="tab"><div class="rolagem"><table id="gTabela"></table></div></div>
+  </section>
 
-  <h2>Detalhamento por contrato</h2>
-  <div class="barra"><select id="contrato"></select></div>
-  <div class="info" id="info"></div>
-  <div class="cards" id="cards"></div>
+  <!-- ===================== DASHBOARD DO CONTRATO ===================== -->
+  <section id="vContrato" class="oculto">
+    <div class="barra-topo">
+      <button class="btn" onclick="irPara('')">← Visão geral</button>
+      <select id="sel" onchange="irPara(C[this.value].Contrato)"></select>
+    </div>
 
-  <h2>Empenhos</h2>
-  <div class="tabela"><table id="empenhos"></table></div>
+    <div class="secao">Identificação</div>
+    <div class="caixa ident" id="cIdent"></div>
 
-  <h2>Pagamentos</h2>
-  <div class="tabela"><table id="pagamentos"></table></div>
+    <div class="secao">Execução contratual — posição atual</div>
+    <div class="kpis" id="cKpis"></div>
+
+    <div id="blocoExec">
+      <div class="secao">Termômetro de execução</div>
+      <div class="caixa" id="cTermo"></div>
+
+      <div class="secao">Posição financeira — composição do empenhado líquido</div>
+      <div class="caixa" id="cComp"></div>
+
+      <div class="secao">Empenhos</div>
+      <div class="tab" id="cEmp"></div>
+
+      <div class="secao">Saldo remanescente por empenho</div>
+      <div class="tab" id="cSaldo"></div>
+
+      <div class="secao">Pagamentos</div>
+      <div class="tab" id="cPag"></div>
+    </div>
+    <div id="semExec" class="caixa vazio oculto" style="margin-top:16px">Ainda não há empenhos ou pagamentos registrados para este contrato na planilha. Inclua as linhas nas abas Empenhos e Pagamentos para gerar o dashboard.</div>
+  </section>
 </main>
 
 <script>
-  const R$ = v => (v == null || v === '') ? '—' : Number(v).toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
-  const pct = v => v == null ? '—' : (v * 100).toLocaleString('pt-BR', { maximumFractionDigits:1 }) + '%';
-  const dt = v => v ? new Date(v).toLocaleDateString('pt-BR', { timeZone:'UTC' }) : '—';
-  const tx = v => (v == null || v === '') ? '—' : v;
-  const soma = (lista, campo) => lista.reduce((s, x) => s + (Number(x[campo]) || 0), 0);
+  /* ---------- utilitários ---------- */
+  const R$ = v => (v == null || v === '' || isNaN(v)) ? '—' : (Number(v) || 0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+  const P2 = v => (v == null || !isFinite(v)) ? '—' : (v * 100).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 }) + '%';
+  const DT = v => v ? new Date(v).toLocaleDateString('pt-BR', { timeZone:'UTC' }) : null;
+  const TX = v => (v == null || v === '') ? '—' : v;
+  const cent = v => Math.round((Number(v) || 0) * 100);
+  const soma = (l, f) => l.reduce((s, x) => s + cent(x[f]), 0) / 100;
   const hoje = new Date(); hoje.setHours(0,0,0,0);
-
+  const VAL = 'Valor (R$)';
   let C = [], E = [], P = [];
 
-  function situacao(c) {
-    if (!c['Fim da vigência']) return '';
-    return new Date(c['Fim da vigência']) < hoje
-      ? '<span class="tag enc">Encerrado</span>' : '<span class="tag vig">Vigente</span>';
+  const rotPg = y => y['Referência'] || y['Solicitação SYDLE'] || y.Processo || 'Pagamento';
+  const situacao = c => !c['Fim da vigência'] ? '' :
+    (new Date(c['Fim da vigência']) < hoje ? '<span class="tag t-enc">Encerrado</span>' : '<span class="tag t-vig">Vigente</span>');
+
+  /* ---------- cálculos de um contrato ---------- */
+  function calcular(cod) {
+    const e = E.filter(x => x.Contrato === cod), p = P.filter(x => x.Contrato === cod);
+    const emp = e.filter(x => x.Tipo === 'Empenho'), anul = e.filter(x => x.Tipo === 'Anulação');
+    const pagos = p.filter(x => x['Situação'] === 'Pago'), abertos = p.filter(x => x['Situação'] === 'Em aberto');
+    const bruto = soma(emp, VAL), anulTot = -soma(anul, VAL);
+    const liquido = (cent(bruto) - cent(anulTot)) / 100;
+    const pago = soma(pagos, VAL), aberto = soma(abertos, VAL);
+    const saldo = (cent(liquido) - cent(pago)) / 100;
+
+    // Saldo por empenho
+    const porNE = emp.map(x => {
+      const ne = x['Nº do empenho'];
+      const an = anul.filter(a => a['Empenho de origem'] === ne);
+      const anV = -soma(an, VAL);
+      const pg = pagos.filter(y => y['Empenho vinculado'] === ne), ab = abertos.filter(y => y['Empenho vinculado'] === ne);
+      const liq = (cent(x[VAL]) - cent(anV)) / 100, pgV = soma(pg, VAL), abV = soma(ab, VAL);
+      return { x, ne, anV, an, liq, pg, ab, pgV, abV, saldo: (cent(liq) - cent(pgV)) / 100 };
+    });
+    const anulSemVinculo = anul.filter(a => !a['Empenho de origem'] || !emp.some(x => x['Nº do empenho'] === a['Empenho de origem']));
+    return { e, p, emp, anul, pagos, abertos, bruto, anulTot, liquido, pago, aberto, saldo, porNE, anulSemVinculo,
+             perc: liquido ? pago / liquido : null };
   }
 
-  function totais(codigo) {
-    const e = E.filter(x => x.Contrato === codigo), p = P.filter(x => x.Contrato === codigo);
-    const bruto = soma(e.filter(x => x.Tipo === 'Empenho'), 'Valor (R$)');
-    const anul = -soma(e.filter(x => x.Tipo === 'Anulação'), 'Valor (R$)');
-    const liquido = bruto - anul;
-    const pago = soma(p.filter(x => x['Situação'] === 'Pago'), 'Valor (R$)');
-    const aberto = soma(p.filter(x => x['Situação'] === 'Em aberto'), 'Valor (R$)');
-    return { e, p, bruto, anul, liquido, pago, aberto, saldo: liquido - pago, perc: liquido ? pago / liquido : null };
-  }
-
+  /* ---------- VISÃO GERAL ---------- */
   function visaoGeral() {
-    let tL = 0, tP = 0, tA = 0, tS = 0;
-    const linhas = C.map((c, i) => {
-      const t = totais(c.Contrato);
-      tL += t.liquido; tP += t.pago; tA += t.aberto; tS += t.saldo;
-      return `<tr class="clicavel" onclick="selecionar(${i})">
-        <td><b>${c.Contrato}</b></td><td>${tx(c.Contratada)}</td><td>${tx(c.Categoria)}</td>
-        <td>${dt(c['Fim da vigência'])}</td><td>${situacao(c)}</td>
-        <td class="n">${R$(c['Valor global (R$)'])}</td><td class="n">${t.e.length ? R$(t.liquido) : '—'}</td>
+    let L = 0, PG = 0, AB = 0, S = 0, AN = 0;
+    const linhas = C.map(c => {
+      const t = calcular(c.Contrato), tem = t.e.length > 0;
+      L += t.liquido; PG += t.pago; AB += t.aberto; S += t.saldo; AN += t.anulTot;
+      return `<tr class="clic" onclick="irPara('${c.Contrato}')">
+        <td style="white-space:nowrap"><b>${c.Contrato}</b></td><td>${TX(c.Contratada)}<span class="fraco">${TX(c.Categoria)}</span></td>
+        <td style="white-space:nowrap">${situacao(c)}<span class="fraco">até ${DT(c['Fim da vigência']) || '—'}</span></td>
+        <td class="n">${R$(c['Valor global (R$)'])}</td>
+        <td class="n">${tem ? R$(t.liquido) : '—'}</td><td class="n">${tem ? R$(t.anulTot) : '—'}</td>
         <td class="n">${t.p.length ? R$(t.pago) : '—'}</td><td class="n">${t.aberto ? R$(t.aberto) : '—'}</td>
-        <td class="n">${t.e.length ? R$(t.saldo) : '—'}</td><td class="n">${t.e.length ? pct(t.perc) : '—'}</td></tr>`;
+        <td class="n">${tem ? R$(t.saldo) : '—'}</td>
+        <td class="n">${tem ? `<div class="minibar">${P2(t.perc)}<span class="tr"><i style="width:${Math.min(100, (t.perc || 0) * 100)}%"></i></span></div>` : '—'}</td></tr>`;
     }).join('');
-    document.getElementById('geral').innerHTML =
-      `<thead><tr><th>Contrato</th><th>Contratada</th><th>Categoria</th><th>Fim da vigência</th><th>Situação</th>
-       <th>Valor global</th><th>Empenhado líquido</th><th>Pago</th><th>Em aberto</th><th>Saldo s/ empenhos</th><th>% pago</th></tr></thead>
+    document.getElementById('gTabela').innerHTML =
+      `<thead><tr><th>Contrato</th><th>Contratada</th><th>Vigência</th><th class="n">Valor global</th>
+       <th class="n">Empenhado líquido</th><th class="n">Anulações</th><th class="n">Pago</th><th class="n">Em aberto</th><th class="n">Saldo s/ empenhos</th><th class="n">% executado</th></tr></thead>
        <tbody>${linhas}</tbody>
-       <tfoot><tr><td colspan="6">TOTAL</td><td class="n">${R$(tL)}</td><td class="n">${R$(tP)}</td>
-       <td class="n">${R$(tA)}</td><td class="n">${R$(tS)}</td><td class="n">${pct(tL ? tP / tL : null)}</td></tr></tfoot>`;
-  }
-
-  function selecionar(i) {
-    document.getElementById('contrato').value = i;
-    detalhar(i);
-    document.getElementById('contrato').scrollIntoView({ behavior:'smooth', block:'start' });
-  }
-
-  function detalhar(i) {
-    const c = C[i], t = totais(c.Contrato);
-    history.replaceState(null, '', '#' + encodeURIComponent(c.Contrato));
-
-    const vig = [c['Início da vigência'] ? 'de ' + dt(c['Início da vigência']) : null,
-                 c['Fim da vigência'] ? 'até ' + dt(c['Fim da vigência']) : null].filter(Boolean).join(' ');
-    document.getElementById('info').innerHTML =
-      `<b>${c.Contrato} · ${tx(c.Contratada)}</b> ${situacao(c)}<br>${tx(c.Objeto)}<br>
-       Vigência: ${vig || '—'} · Valor mensal: ${R$(c['Valor mensal (R$)'])} · Valor global: ${R$(c['Valor global (R$)'])}
-       ${c['Ato de autorização'] ? '<br>Autorização: ' + c['Ato de autorização'] : ''}
-       ${c['Ação orçamentária'] ? ' · Ação: ' + c['Ação orçamentária'] : ''}
-       ${c['Posição em'] ? '<br>Posição em ' + dt(c['Posição em']) : ''}
-       ${c['Observação'] ? '<br><small>' + c['Observação'] + '</small>' : ''}`;
-
-    const lim = c['Limite de empenho 2026 (R$)'];
-    const cards = [
-      ['Empenhado líquido', R$(t.liquido), t.anul ? 'Bruto ' + R$(t.bruto) + ' − anulações ' + R$(t.anul) : 'Sem anulações'],
-      ['Pago', R$(t.pago), pct(t.perc) + ' do empenhado líquido'],
-      ['Em aberto', R$(t.aberto), 'Pagamentos aguardando'],
-      ['Saldo s/ empenhos', R$(t.saldo), 'Empenhado líquido − pago'],
-    ];
-    if (lim) cards.push(['Limite de empenho 2026', R$(lim), pct(t.liquido / lim) + ' utilizado (líquido)']);
-    document.getElementById('cards').innerHTML = t.e.length || t.p.length
-      ? cards.map(([a, b, s]) => `<div class="card"><span>${a}</span><strong>${b}</strong><small>${s}</small></div>`).join('')
-      : '<div class="vazio">Ainda não há empenhos ou pagamentos registrados para este contrato na planilha.</div>';
-
-    document.getElementById('empenhos').innerHTML = t.e.length
-      ? `<thead><tr><th>Nº do empenho</th><th>Tipo</th><th>Origem</th><th>Emissão</th><th>Referência</th><th>Competência</th><th>Fonte / UG</th><th>Valor</th><th>Observação</th></tr></thead><tbody>` +
-        t.e.map(x => `<tr class="${x['Valor (R$)'] < 0 ? 'neg' : ''}"><td>${x['Nº do empenho']}</td><td>${x.Tipo}</td><td>${tx(x['Empenho de origem'])}</td>
-          <td>${dt(x['Data de emissão'])}</td><td>${tx(x['Referência'])}</td><td>${tx(x['Competência'])}</td><td>${tx(x['Fonte / UG'])}</td>
-          <td class="n">${R$(x['Valor (R$)'])}</td><td>${tx(x['Observação'])}</td></tr>`).join('') +
-        `</tbody><tfoot><tr><td colspan="7">Empenhado líquido</td><td class="n">${R$(t.liquido)}</td><td></td></tr></tfoot>`
-      : '<tr><td class="vazio">Nenhum empenho registrado.</td></tr>';
-
-    document.getElementById('pagamentos').innerHTML = t.p.length
-      ? `<thead><tr><th>Referência</th><th>Processo</th><th>Solicitação SYDLE</th><th>Empenho</th><th>Valor</th><th>Data</th><th>Situação</th><th>Fonte / UG</th><th>Observação</th></tr></thead><tbody>` +
-        t.p.map(x => `<tr><td>${tx(x['Referência'])}</td><td>${tx(x.Processo)}</td><td>${tx(x['Solicitação SYDLE'])}</td><td>${tx(x['Empenho vinculado'])}</td>
-          <td class="n">${R$(x['Valor (R$)'])}</td><td>${dt(x['Data do pagamento'])}</td>
-          <td><span class="tag ${x['Situação'] === 'Pago' ? 'pago' : 'aberto'}">${tx(x['Situação'])}</span></td>
-          <td>${tx(x['Fonte / UG'])}</td><td>${tx(x['Observação'])}</td></tr>`).join('') +
-        `</tbody><tfoot><tr><td colspan="4">Total pago · em aberto: ${R$(t.aberto)}</td><td class="n">${R$(t.pago)}</td><td colspan="4"></td></tr></tfoot>`
-      : '<tr><td class="vazio">Nenhum pagamento registrado.</td></tr>';
-  }
-
-  fetch('dados/execucao.json?v=' + Date.now())
-    .then(r => { if (!r.ok) throw new Error('Arquivo de dados não encontrado (dados/execucao.json).'); return r.json(); })
-    .then(json => {
-      C = json.abas.Contratos || []; E = json.abas.Empenhos || []; P = json.abas.Pagamentos || [];
-      document.getElementById('atualizado').textContent =
-        'Atualizado em ' + new Date(json.atualizadoEm).toLocaleString('pt-BR') + ' · ' + C.length + ' contratos';
-      visaoGeral();
-      const sel = document.getElementById('contrato');
-      sel.innerHTML = C.map((c, i) => `<option value="${i}">${c.Contrato} — ${c.Contratada}</option>`).join('');
-      sel.addEventListener('change', e => detalhar(e.target.value));
-      const pedido = decodeURIComponent(location.hash.slice(1));
-      const ini = Math.max(0, C.findIndex(c => c.Contrato === pedido));
-      sel.value = ini; detalhar(ini);
-    })
-    .catch(e => { document.getElementById('atualizado').textContent = ''; document.getElementById('erro').textContent = e.message; });
-</script>
-</body>
-</html>
+       <tfoot><tr><td colspan="4">TOTAL</td><td class="n">${R$(L)}</td><td class="n">${R$(AN)}</td><td class="n">${R$(PG)}</td><td class="n">${R$(AB)}</td><td class="n">${R$(S)}</td><td class="n">${P2(L ? PG / L : null)}</td></tr></tfoot>`;
+    document.getElementById('gKpis').innerHTML

@@ -3,55 +3,175 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard de Execução Contratual</title>
+<title>Execução Contratual | SEGOV/TJCE</title>
 <style>
-  body { font-family: Segoe UI, Arial, sans-serif; margin: 32px; color: #1f2937; background: #f8fafc; }
-  h1 { margin: 0 0 4px; font-size: 26px; }
-  #atualizado { color: #64748b; margin-bottom: 24px; }
-  table { border-collapse: collapse; width: 100%; background: #fff; }
-  th, td { border: 1px solid #e2e8f0; padding: 8px 12px; text-align: left; font-size: 14px; }
-  th { background: #1e3a5f; color: #fff; }
-  tr:nth-child(even) td { background: #f1f5f9; }
-  td.num { text-align: right; font-variant-numeric: tabular-nums; }
-  #erro { color: #b91c1c; }
+  :root { --navy:#0b2f63; --line:#dfe7f1; --muted:#66758a; --bg:#f3f6fb; --verde:#1f9d68; --ambar:#b7791f; --verm:#b91c1c; }
+  * { box-sizing:border-box; }
+  body { font-family:"Segoe UI",Arial,sans-serif; margin:0; background:var(--bg); color:#10213d; }
+  header { background:linear-gradient(115deg,#082d61,#164f91); color:#fff; padding:26px 32px; }
+  header h1 { margin:0 0 6px; font-size:28px; }
+  header p { margin:0; opacity:.85; font-size:14px; }
+  main { max-width:1400px; margin:0 auto; padding:22px 32px 40px; }
+  h2 { font-size:18px; color:var(--navy); margin:26px 0 10px; }
+  .barra { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+  select { font-size:15px; padding:8px 12px; border:1px solid #c9d5e5; border-radius:8px; background:#fff; min-width:340px; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin-top:14px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .card span { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+  .card strong { display:block; font-size:19px; color:var(--navy); margin-top:4px; font-variant-numeric:tabular-nums; }
+  .card small { color:var(--muted); font-size:12px; }
+  .info { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-top:14px; font-size:14px; line-height:1.6; }
+  .tabela { overflow-x:auto; background:#fff; border:1px solid var(--line); border-radius:12px; }
+  table { border-collapse:collapse; width:100%; font-size:13px; }
+  th { background:var(--navy); color:#fff; text-align:left; padding:9px 10px; white-space:nowrap; }
+  td { border-top:1px solid var(--line); padding:8px 10px; vertical-align:top; }
+  tr:nth-child(even) td { background:#f8fafc; }
+  #geral td:first-child { white-space:nowrap; }
+  td.n { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  tr.neg td.n { color:var(--verm); }
+  tr.clicavel { cursor:pointer; } tr.clicavel:hover td { background:#eaf2fb; }
+  .tag { display:inline-block; font-size:11px; font-weight:700; padding:3px 8px; border-radius:999px; }
+  .vig { background:#e8f7f0; color:#14754e; } .enc { background:#fdecec; color:var(--verm); }
+  .pago { background:#e8f7f0; color:#14754e; } .aberto { background:#fbf3df; color:#8a6410; }
+  .vazio { color:var(--muted); font-style:italic; padding:14px; }
+  tfoot td { font-weight:700; background:#eef3f9 !important; }
+  #erro { color:var(--verm); }
 </style>
 </head>
 <body>
-  <h1>Dashboard de Execução Contratual</h1>
-  <div id="atualizado">Carregando dados…</div>
+<header>
+  <h1>Execução Contratual</h1>
+  <p>SEGOV / TJCE · <span id="atualizado">Carregando dados…</span></p>
+</header>
+<main>
   <div id="erro"></div>
-  <table id="tabela"></table>
+
+  <h2>Visão geral dos contratos</h2>
+  <div class="tabela"><table id="geral"></table></div>
+
+  <h2>Detalhamento por contrato</h2>
+  <div class="barra"><select id="contrato"></select></div>
+  <div class="info" id="info"></div>
+  <div class="cards" id="cards"></div>
+
+  <h2>Empenhos</h2>
+  <div class="tabela"><table id="empenhos"></table></div>
+
+  <h2>Pagamentos</h2>
+  <div class="tabela"><table id="pagamentos"></table></div>
+</main>
 
 <script>
-  // Nome do JSON = nome da planilha em /planilhas (contrato-001.xlsx -> contrato-001.json)
-  const ARQUIVO = 'dados/contrato-001.json';
+  const R$ = v => (v == null || v === '') ? '—' : Number(v).toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+  const pct = v => v == null ? '—' : (v * 100).toLocaleString('pt-BR', { maximumFractionDigits:1 }) + '%';
+  const dt = v => v ? new Date(v).toLocaleDateString('pt-BR', { timeZone:'UTC' }) : '—';
+  const tx = v => (v == null || v === '') ? '—' : v;
+  const soma = (lista, campo) => lista.reduce((s, x) => s + (Number(x[campo]) || 0), 0);
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
 
-  const moeda = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  const ehData = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v);
+  let C = [], E = [], P = [];
 
-  fetch(ARQUIVO + '?v=' + Date.now())
-    .then(r => { if (!r.ok) throw new Error('Arquivo de dados não encontrado: ' + ARQUIVO); return r.json(); })
-    .then(({ atualizadoEm, dados }) => {
+  function situacao(c) {
+    if (!c['Fim da vigência']) return '';
+    return new Date(c['Fim da vigência']) < hoje
+      ? '<span class="tag enc">Encerrado</span>' : '<span class="tag vig">Vigente</span>';
+  }
+
+  function totais(codigo) {
+    const e = E.filter(x => x.Contrato === codigo), p = P.filter(x => x.Contrato === codigo);
+    const bruto = soma(e.filter(x => x.Tipo === 'Empenho'), 'Valor (R$)');
+    const anul = -soma(e.filter(x => x.Tipo === 'Anulação'), 'Valor (R$)');
+    const liquido = bruto - anul;
+    const pago = soma(p.filter(x => x['Situação'] === 'Pago'), 'Valor (R$)');
+    const aberto = soma(p.filter(x => x['Situação'] === 'Em aberto'), 'Valor (R$)');
+    return { e, p, bruto, anul, liquido, pago, aberto, saldo: liquido - pago, perc: liquido ? pago / liquido : null };
+  }
+
+  function visaoGeral() {
+    let tL = 0, tP = 0, tA = 0, tS = 0;
+    const linhas = C.map((c, i) => {
+      const t = totais(c.Contrato);
+      tL += t.liquido; tP += t.pago; tA += t.aberto; tS += t.saldo;
+      return `<tr class="clicavel" onclick="selecionar(${i})">
+        <td><b>${c.Contrato}</b></td><td>${tx(c.Contratada)}</td><td>${tx(c.Categoria)}</td>
+        <td>${dt(c['Fim da vigência'])}</td><td>${situacao(c)}</td>
+        <td class="n">${R$(c['Valor global (R$)'])}</td><td class="n">${t.e.length ? R$(t.liquido) : '—'}</td>
+        <td class="n">${t.p.length ? R$(t.pago) : '—'}</td><td class="n">${t.aberto ? R$(t.aberto) : '—'}</td>
+        <td class="n">${t.e.length ? R$(t.saldo) : '—'}</td><td class="n">${t.e.length ? pct(t.perc) : '—'}</td></tr>`;
+    }).join('');
+    document.getElementById('geral').innerHTML =
+      `<thead><tr><th>Contrato</th><th>Contratada</th><th>Categoria</th><th>Fim da vigência</th><th>Situação</th>
+       <th>Valor global</th><th>Empenhado líquido</th><th>Pago</th><th>Em aberto</th><th>Saldo s/ empenhos</th><th>% pago</th></tr></thead>
+       <tbody>${linhas}</tbody>
+       <tfoot><tr><td colspan="6">TOTAL</td><td class="n">${R$(tL)}</td><td class="n">${R$(tP)}</td>
+       <td class="n">${R$(tA)}</td><td class="n">${R$(tS)}</td><td class="n">${pct(tL ? tP / tL : null)}</td></tr></tfoot>`;
+  }
+
+  function selecionar(i) {
+    document.getElementById('contrato').value = i;
+    detalhar(i);
+    document.getElementById('contrato').scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+
+  function detalhar(i) {
+    const c = C[i], t = totais(c.Contrato);
+    history.replaceState(null, '', '#' + encodeURIComponent(c.Contrato));
+
+    const vig = [c['Início da vigência'] ? 'de ' + dt(c['Início da vigência']) : null,
+                 c['Fim da vigência'] ? 'até ' + dt(c['Fim da vigência']) : null].filter(Boolean).join(' ');
+    document.getElementById('info').innerHTML =
+      `<b>${c.Contrato} · ${tx(c.Contratada)}</b> ${situacao(c)}<br>${tx(c.Objeto)}<br>
+       Vigência: ${vig || '—'} · Valor mensal: ${R$(c['Valor mensal (R$)'])} · Valor global: ${R$(c['Valor global (R$)'])}
+       ${c['Ato de autorização'] ? '<br>Autorização: ' + c['Ato de autorização'] : ''}
+       ${c['Ação orçamentária'] ? ' · Ação: ' + c['Ação orçamentária'] : ''}
+       ${c['Posição em'] ? '<br>Posição em ' + dt(c['Posição em']) : ''}
+       ${c['Observação'] ? '<br><small>' + c['Observação'] + '</small>' : ''}`;
+
+    const lim = c['Limite de empenho 2026 (R$)'];
+    const cards = [
+      ['Empenhado líquido', R$(t.liquido), t.anul ? 'Bruto ' + R$(t.bruto) + ' − anulações ' + R$(t.anul) : 'Sem anulações'],
+      ['Pago', R$(t.pago), pct(t.perc) + ' do empenhado líquido'],
+      ['Em aberto', R$(t.aberto), 'Pagamentos aguardando'],
+      ['Saldo s/ empenhos', R$(t.saldo), 'Empenhado líquido − pago'],
+    ];
+    if (lim) cards.push(['Limite de empenho 2026', R$(lim), pct(t.liquido / lim) + ' utilizado (líquido)']);
+    document.getElementById('cards').innerHTML = t.e.length || t.p.length
+      ? cards.map(([a, b, s]) => `<div class="card"><span>${a}</span><strong>${b}</strong><small>${s}</small></div>`).join('')
+      : '<div class="vazio">Ainda não há empenhos ou pagamentos registrados para este contrato na planilha.</div>';
+
+    document.getElementById('empenhos').innerHTML = t.e.length
+      ? `<thead><tr><th>Nº do empenho</th><th>Tipo</th><th>Origem</th><th>Emissão</th><th>Referência</th><th>Competência</th><th>Fonte / UG</th><th>Valor</th><th>Observação</th></tr></thead><tbody>` +
+        t.e.map(x => `<tr class="${x['Valor (R$)'] < 0 ? 'neg' : ''}"><td>${x['Nº do empenho']}</td><td>${x.Tipo}</td><td>${tx(x['Empenho de origem'])}</td>
+          <td>${dt(x['Data de emissão'])}</td><td>${tx(x['Referência'])}</td><td>${tx(x['Competência'])}</td><td>${tx(x['Fonte / UG'])}</td>
+          <td class="n">${R$(x['Valor (R$)'])}</td><td>${tx(x['Observação'])}</td></tr>`).join('') +
+        `</tbody><tfoot><tr><td colspan="7">Empenhado líquido</td><td class="n">${R$(t.liquido)}</td><td></td></tr></tfoot>`
+      : '<tr><td class="vazio">Nenhum empenho registrado.</td></tr>';
+
+    document.getElementById('pagamentos').innerHTML = t.p.length
+      ? `<thead><tr><th>Referência</th><th>Processo</th><th>Solicitação SYDLE</th><th>Empenho</th><th>Valor</th><th>Data</th><th>Situação</th><th>Fonte / UG</th><th>Observação</th></tr></thead><tbody>` +
+        t.p.map(x => `<tr><td>${tx(x['Referência'])}</td><td>${tx(x.Processo)}</td><td>${tx(x['Solicitação SYDLE'])}</td><td>${tx(x['Empenho vinculado'])}</td>
+          <td class="n">${R$(x['Valor (R$)'])}</td><td>${dt(x['Data do pagamento'])}</td>
+          <td><span class="tag ${x['Situação'] === 'Pago' ? 'pago' : 'aberto'}">${tx(x['Situação'])}</span></td>
+          <td>${tx(x['Fonte / UG'])}</td><td>${tx(x['Observação'])}</td></tr>`).join('') +
+        `</tbody><tfoot><tr><td colspan="4">Total pago · em aberto: ${R$(t.aberto)}</td><td class="n">${R$(t.pago)}</td><td colspan="4"></td></tr></tfoot>`
+      : '<tr><td class="vazio">Nenhum pagamento registrado.</td></tr>';
+  }
+
+  fetch('dados/execucao.json?v=' + Date.now())
+    .then(r => { if (!r.ok) throw new Error('Arquivo de dados não encontrado (dados/execucao.json).'); return r.json(); })
+    .then(json => {
+      C = json.abas.Contratos || []; E = json.abas.Empenhos || []; P = json.abas.Pagamentos || [];
       document.getElementById('atualizado').textContent =
-        'Atualizado em ' + new Date(atualizadoEm).toLocaleString('pt-BR');
-      if (!dados.length) return;
-
-      const colunas = Object.keys(dados[0]);
-      const tabela = document.getElementById('tabela');
-      tabela.innerHTML =
-        '<thead><tr>' + colunas.map(c => `<th>${c}</th>`).join('') + '</tr></thead>' +
-        '<tbody>' + dados.map(linha => '<tr>' + colunas.map(c => {
-          const v = linha[c];
-          if (v === null || v === undefined) return '<td></td>';
-          if (typeof v === 'number') return `<td class="num">${moeda(v)}</td>`;
-          if (ehData(v)) return `<td>${new Date(v).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</td>`;
-          return `<td>${v}</td>`;
-        }).join('') + '</tr>').join('') + '</tbody>';
+        'Atualizado em ' + new Date(json.atualizadoEm).toLocaleString('pt-BR') + ' · ' + C.length + ' contratos';
+      visaoGeral();
+      const sel = document.getElementById('contrato');
+      sel.innerHTML = C.map((c, i) => `<option value="${i}">${c.Contrato} — ${c.Contratada}</option>`).join('');
+      sel.addEventListener('change', e => detalhar(e.target.value));
+      const pedido = decodeURIComponent(location.hash.slice(1));
+      const ini = Math.max(0, C.findIndex(c => c.Contrato === pedido));
+      sel.value = ini; detalhar(ini);
     })
-    .catch(e => {
-      document.getElementById('atualizado').textContent = '';
-      document.getElementById('erro').textContent = e.message;
-    });
+    .catch(e => { document.getElementById('atualizado').textContent = ''; document.getElementById('erro').textContent = e.message; });
 </script>
 </body>
 </html>

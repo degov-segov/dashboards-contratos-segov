@@ -222,4 +222,185 @@
        <th class="n">Empenhado líquido</th><th class="n">Anulações</th><th class="n">Pago</th><th class="n">Em aberto</th><th class="n">Saldo s/ empenhos</th><th class="n">% executado</th></tr></thead>
        <tbody>${linhas}</tbody>
        <tfoot><tr><td colspan="4">TOTAL</td><td class="n">${R$(L)}</td><td class="n">${R$(AN)}</td><td class="n">${R$(PG)}</td><td class="n">${R$(AB)}</td><td class="n">${R$(S)}</td><td class="n">${P2(L ? PG / L : null)}</td></tr></tfoot>`;
-    document.getElementById('gKpis').innerHTML
+    document.getElementById('gKpis').innerHTML = [
+      ['azul', 'Total empenhado (líquido)', R$(L), 'Anulações: ' + R$(AN)],
+      ['verde', 'Total pago', R$(PG), P2(L ? PG / L : null) + ' do empenhado líquido'],
+      ['ambar', 'Pagamentos em aberto', R$(AB), 'Aguardando pagamento'],
+      ['verm', 'Saldo s/ empenhos', R$(S), 'Empenhado líquido − pago'],
+    ].map(k => kpi(...k)).join('');
+  }
+
+  const kpi = (cor, rot, val, sub) => `<div class="kpi ${cor}"><div class="rot">${rot}</div><div class="val">${val}</div><div class="sub">${sub}</div></div>`;
+
+  /* ---------- barra do termômetro ---------- */
+  function termo(titulo, base, segs, corPct, refEsq) {
+    if (!base) return '';
+    const usado = segs.reduce((s, x) => s + x.v, 0), pct = usado / base;
+    const estouro = usado > base;
+    const html = segs.filter(s => s.v > 0).map(s => {
+      const w = Math.min(100, s.v / Math.max(base, usado) * 100);
+      return `<div class="seg ${estouro ? 'estouro' : s.cor}" style="width:${w}%" title="${s.nome}: ${R$(s.v)} (${P2(s.v / base)})">${w > 14 ? R$(s.v) : ''}</div>`;
+    }).join('');
+    return `<div class="termo"><div class="lin"><span>${titulo}</span><span class="pct" style="color:${corPct}">${P2(pct)}</span></div>
+      <div class="trilho">${html}</div>
+      <div class="ref"><span>${refEsq || R$(usado)}</span><span>de ${R$(base)}</span></div></div>`;
+  }
+
+  /* ---------- DASHBOARD DO CONTRATO ---------- */
+  function dashboard(i) {
+    const c = C[i], t = calcular(c.Contrato);
+    document.getElementById('sel').value = i;
+    const limE = Number(c['Limite de empenho 2026 (R$)']) || null, limP = Number(c['Limite de pagamento 2026 (R$)']) || null;
+
+    // Identificação
+    const vig = [DT(c['Início da vigência']) ? 'de ' + DT(c['Início da vigência']) : null, DT(c['Fim da vigência']) ? 'até ' + DT(c['Fim da vigência']) : null].filter(Boolean).join(' ');
+    document.getElementById('cIdent').innerHTML = `
+      <div><h2>${c.Contrato} · ${TX(c.Contratada)} ${situacao(c)}</h2>
+        <div class="obj">${TX(c.Objeto)}</div>
+        ${c['Observação'] ? `<div class="nota">${c['Observação']}</div>` : ''}</div>
+      <dl>
+        <dt>Categoria</dt><dd>${TX(c.Categoria)}</dd>
+        <dt>Vigência</dt><dd>${vig || '—'}</dd>
+        <dt>Valor mensal</dt><dd>${R$(c['Valor mensal (R$)'])}</dd>
+        <dt>Valor global</dt><dd>${R$(c['Valor global (R$)'])}</dd>
+        <dt>Limite de empenho 2026</dt><dd>${R$(limE)}</dd>
+        ${limP ? `<dt>Limite de pagamento 2026</dt><dd>${R$(limP)}</dd>` : ''}
+        ${c['Ato de autorização'] ? `<dt>Autorização</dt><dd>${c['Ato de autorização']}</dd>` : ''}
+        ${c['Ação orçamentária'] ? `<dt>Ação orçamentária</dt><dd>${c['Ação orçamentária']}</dd>` : ''}
+        ${DT(c['Posição em']) ? `<dt>Posição em</dt><dd>${DT(c['Posição em'])}</dd>` : ''}
+      </dl>`;
+
+    // Indicadores
+    document.getElementById('cKpis').innerHTML = [
+      ['', 'Empenhado bruto', R$(t.bruto), t.emp.length + ' nota(s) de empenho'],
+      ['verm', 'Anulações', R$(t.anulTot), t.anul.length + ' anulação(ões)' + (t.bruto ? ' · ' + P2(t.anulTot / t.bruto) + ' do bruto' : '')],
+      ['azul', 'Empenhado líquido', R$(t.liquido), 'Bruto − anulações'],
+      ['verde', 'Total pago', R$(t.pago), t.pagos.length + ' pagamento(s) · ' + P2(t.perc) + ' executado'],
+      ['ambar', 'Pagamentos em aberto', t.abertos.length ? R$(t.aberto) : '0 pendências', t.abertos.length + ' processo(s) em aberto'],
+      ['cinza', 'Saldo s/ empenhos', R$(t.saldo), 'Empenhado líquido − pago'],
+    ].map(k => kpi(...k)).join('');
+
+    const temExec = t.e.length || t.p.length;
+    document.getElementById('blocoExec').classList.toggle('oculto', !temExec);
+    document.getElementById('semExec').classList.toggle('oculto', !!temExec);
+    if (!temExec) return;
+
+    // Termômetro
+    let termos = '';
+    if (limE) termos += termo(`Empenhado líquido × Limite de empenho (${R$(limE)})`, limE, [{ v: t.liquido, cor: 'azul', nome: 'Empenhado líquido' }], 'var(--navy)');
+    if (limP) termos += termo(`Pagamentos × Limite de pagamento (${R$(limP)})`, limP, [{ v: t.pago, cor: 'verde', nome: 'Pago' }], 'var(--verde-esc)');
+    else if (limE) termos += termo(`Pagamentos × Limite de empenho (${R$(limE)})`, limE, [{ v: t.pago, cor: 'verde', nome: 'Pago' }], 'var(--verde-esc)');
+    termos += termo('Pago + em aberto × Empenhado líquido', t.liquido,
+      [{ v: t.pago, cor: 'verde', nome: 'Pago' }, { v: t.aberto, cor: 'ambar', nome: 'Em aberto' }], 'var(--ambar-esc)',
+      `Pago ${R$(t.pago)} · Em aberto ${R$(t.aberto)}`);
+    if (c['Valor global (R$)']) termos += termo(`Empenhado líquido × Valor global do contrato (${R$(c['Valor global (R$)'])})`, Number(c['Valor global (R$)']),
+      [{ v: t.liquido, cor: 'azul', nome: 'Empenhado líquido' }], 'var(--navy)');
+    termos += `<div class="legenda"><span><i style="background:var(--azul)"></i>Empenhado líquido — ${R$(t.liquido)}</span>
+      <span><i style="background:var(--verde)"></i>Pago — ${R$(t.pago)}</span><span><i style="background:var(--ambar)"></i>Em aberto — ${R$(t.aberto)}</span>
+      ${limE ? `<span><i style="background:#c5ceda"></i>Saldo do limite de empenho — ${R$(limE - t.liquido)}</span>` : ''}</div>`;
+    document.getElementById('cTermo').innerHTML = termos;
+
+    // Composição
+    const livre = Math.max(0, (cent(t.liquido) - cent(t.pago) - cent(t.aberto)) / 100);
+    const segs = [{ v: t.pago, c: 'verde', n: 'Pago' }, { v: t.aberto, c: 'ambar', n: 'A pagar' }, { v: livre, c: 'cinza', n: 'Saldo livre' }]
+      .filter(s => s.v > 0).map(s => {
+        const w = t.liquido ? s.v / t.liquido * 100 : 0;
+        return `<div class="seg ${s.c}" style="width:${w}%;justify-content:center" title="${s.n}: ${R$(s.v)}">${w > 9 ? s.n + ' ' + P2(w / 100) : ''}</div>`;
+      }).join('');
+    document.getElementById('cComp').innerHTML = `
+      <div class="trilho" style="height:34px">${segs}</div>
+      <div class="legenda"><span><i style="background:var(--verde)"></i>Pago efetivado</span><span><i style="background:var(--ambar)"></i>A pagar (pagamentos em aberto)</span><span><i style="background:#c5ceda"></i>Saldo livre do empenho</span></div>
+      <div class="mini">
+        <div class="m-verde"><span>Pago efetivado</span><strong>${R$(t.pago)}</strong><small>${t.pagos.length} pagamento(s) concluído(s)</small></div>
+        <div class="m-ambar"><span>Total a pagar</span><strong>${R$(t.aberto)}</strong><small>${t.abertos.length} processo(s) em aberto</small></div>
+        <div class="m-azul"><span>Comprometido total</span><strong>${R$(t.pago + t.aberto)}</strong><small>${P2(t.liquido ? (t.pago + t.aberto) / t.liquido : null)} do empenhado líquido</small></div>
+        <div class="m-cinza"><span>Saldo livre</span><strong>${R$(livre)}</strong><small>Empenhado líquido − comprometido</small></div>
+      </div>
+      ${t.anulSemVinculo.length ? `<div class="alerta">⚠ ${t.anulSemVinculo.length} anulação(ões) sem empenho de origem informado (${R$(-soma(t.anulSemVinculo, VAL))}). Ela(s) reduz(em) o empenhado líquido, mas não aparece(m) no saldo por empenho até ser(em) vinculada(s).</div>` : ''}`;
+
+    // Tabela de empenhos (ordem da planilha, com acumulado)
+    let acum = 0, n = 0;
+    const linhasE = t.e.map(x => {
+      acum = (cent(acum) + cent(x[VAL])) / 100;
+      const ehAnul = x.Tipo === 'Anulação', ne = x['Nº do empenho'];
+      const ref = x['Referência'] || x['Competência'] || '—';
+      const sub = x['Competência'] && x['Referência'] ? 'Cobre ' + x['Competência'] : (DT(x['Data de emissão']) ? 'Emitido em ' + DT(x['Data de emissão']) : '');
+      if (ehAnul) {
+        return `<tr class="anul"><td>—</td><td><b style="color:var(--ambar-esc)">Anulação${x['Referência'] ? ' — ' + x['Referência'] : ''}</b><span class="fraco mono">${ne}</span></td>
+          <td class="n valor">${R$(x[VAL])}</td><td class="n mono">${R$(acum)}</td>
+          <td colspan="3" style="color:var(--ambar-esc)">${x['Empenho de origem'] ? 'Anulação do saldo do ' + x['Empenho de origem'] : 'Empenho de origem a vincular'}</td><td>${TX(x['Observação'])}</td></tr>`;
+      }
+      const r = t.porNE.find(y => y.x === x);
+      const vinc = r.pg.map(y => `<li class="ok">✓ ${rotPg(y)} — ${R$(y[VAL])}</li>`).concat(r.ab.map(y => `<li class="ab">◌ ${rotPg(y)} — ${R$(y[VAL])} (em aberto)</li>`)).join('');
+      return `<tr><td>${++n}</td><td><b>${ref}</b>${sub ? `<span class="fraco">${sub}</span>` : ''}${x['Fonte / UG'] ? `<span class="fraco">${x['Fonte / UG']}</span>` : ''}</td>
+        <td class="n"><b>${R$(x[VAL])}</b><span class="fraco mono">${ne}</span></td><td class="n mono">${R$(acum)}</td>
+        <td>${vinc ? `<ul class="vinc">${vinc}</ul>` : '<span class="fraco">Sem pagamentos vinculados</span>'}</td>
+        <td class="n">${R$(r.pgV + r.abV)}</td>
+        <td class="n">${R$(r.saldo)}${r.anV ? `<span class="fraco">Após anulação de ${R$(r.anV)}</span>` : ''}</td><td>${TX(x['Observação'])}</td></tr>`;
+    }).join('');
+    document.getElementById('cEmp').innerHTML = `<div class="tab-tit"><b>Empenhos 2026</b><span>Ordem de registro na planilha${limE ? ' · Limite de empenho: ' + R$(limE) : ''}</span></div>
+      <div class="rolagem"><table><thead><tr><th>#</th><th>Referência</th><th class="n">Valor empenhado</th><th class="n">Acumulado</th><th>Pagamentos vinculados</th><th class="n">Pago + em aberto</th><th class="n">Saldo do empenho</th><th>Observação</th></tr></thead>
+      <tbody>${linhasE}</tbody>
+      <tfoot><tr><td colspan="2">EMPENHADO LÍQUIDO<span class="fraco">Bruto ${R$(t.bruto)} − anulações ${R$(t.anulTot)}</span></td><td class="n">${R$(t.liquido)}</td><td class="n mono">${R$(acum)}</td>
+      <td>${t.pagos.length} pgto(s) concluído(s) · ${t.abertos.length} em aberto · ${t.anul.length} anulação(ões)</td><td class="n">${R$(t.pago + t.aberto)}</td><td class="n">${R$(t.saldo)}</td><td></td></tr></tfoot></table></div>`;
+
+    // Saldo remanescente por empenho
+    n = 0;
+    const linhasS = t.porNE.map(r => {
+      const pct = r.liq > 0 ? r.pgV / r.liq : null;
+      const datas = r.pg.map(y => DT(y['Data do pagamento']) || 'a confirmar').join('<br>');
+      let sit;
+      if (r.saldo < 0) sit = '<span class="tag t-neg">Pago acima do empenho</span>';
+      else if (r.saldo === 0) sit = '<span class="tag t-sem">Sem saldo</span>';
+      else if (r.abV) sit = '<span class="tag t-ab">Com pagamento em aberto</span>';
+      else sit = '<span class="tag t-com">Com saldo</span>';
+      const linha = `<tr><td>${++n}</td><td class="mono">${r.ne}</td>
+        <td class="n"><b>${R$(r.liq)}</b>${r.anV ? `<span class="fraco">${R$(r.x[VAL])} − ${R$(r.anV)}</span>` : ''}</td>
+        <td class="n">${R$(r.pgV)}<span class="fraco">${r.pg.length} pgto(s)</span></td><td>${datas || '—'}</td>
+        <td class="n" style="${r.saldo < 0 ? 'color:var(--verm);font-weight:700' : ''}">${R$(r.saldo)}</td>
+        <td class="n"><div class="minibar">${P2(pct)}<span class="tr"><i style="width:${Math.min(100, (pct || 0) * 100)}%"></i></span></div></td><td>${sit}</td></tr>`;
+      const anuls = r.an.map(a => `<tr class="anul"><td>—</td><td class="mono">${a['Nº do empenho']}${a['Nº do empenho'] === r.ne ? ' (anul.)' : ''}</td>
+        <td class="n valor">${R$(a[VAL])}</td><td colspan="4" style="color:var(--ambar-esc)">Anulação${a['Referência'] ? ' (' + a['Referência'] + ')' : ''} — descontada do ${r.ne}</td><td><span class="tag t-anul">Anulação</span></td></tr>`).join('');
+      return linha + anuls;
+    }).join('') + t.anulSemVinculo.map(a => `<tr class="anul"><td>—</td><td class="mono">${a['Nº do empenho']}</td><td class="n valor">${R$(a[VAL])}</td>
+        <td colspan="4" style="color:var(--ambar-esc)">${TX(a['Observação'])}</td><td><span class="tag t-anul">A vincular</span></td></tr>`).join('');
+    const somaSaldos = t.porNE.reduce((s, r) => s + cent(r.saldo), 0) / 100;
+    document.getElementById('cSaldo').innerHTML = `<div class="tab-tit"><b>Saldo remanescente por empenho</b><span>Saldo = valor do empenho (líquido de anulações) − pagamentos concluídos</span></div>
+      <div class="rolagem"><table><thead><tr><th>#</th><th>Empenho</th><th class="n">Valor do empenho<br><span style="text-transform:none;font-weight:400">(bruto − anulação)</span></th><th class="n">Pagos vinculados</th><th>Datas de pagamento</th><th class="n">Saldo remanescente</th><th class="n">% pago</th><th>Situação</th></tr></thead>
+      <tbody>${linhasS}</tbody>
+      <tfoot><tr><td colspan="2">TOTAL</td><td class="n">${R$(t.porNE.reduce((s, r) => s + cent(r.liq), 0) / 100)}</td><td class="n">${R$(t.porNE.reduce((s, r) => s + cent(r.pgV), 0) / 100)}</td><td></td><td class="n">${R$(somaSaldos)}</td><td class="n">${P2(t.perc)}</td><td>${somaSaldos === t.saldo ? '<span class="tag t-pago">✔ Conciliado</span>' : '<span class="tag t-ab">Diferença: anulação a vincular</span>'}</td></tr></tfoot></table></div>`;
+
+    // Pagamentos
+    const linhasP = t.p.map(y => `<tr><td><b>${TX(y['Referência'])}</b></td><td class="mono" style="white-space:nowrap">${TX(y.Processo)}</td><td>${TX(y['Solicitação SYDLE'])}</td>
+      <td class="n">${R$(y[VAL])}</td><td>${DT(y['Data do pagamento']) || '<span class="fraco" style="margin:0">a confirmar</span>'}</td>
+      <td><span class="tag ${y['Situação'] === 'Pago' ? 't-pago' : 't-ab'}">${TX(y['Situação'])}</span></td><td class="mono">${TX(y['Empenho vinculado'])}</td><td>${TX(y['Observação'])}</td></tr>`).join('');
+    document.getElementById('cPag').innerHTML = `<div class="tab-tit"><b>Pagamentos 2026</b><span>${t.pagos.length} concluído(s) · ${t.abertos.length} em aberto (${R$(t.aberto)})</span></div>
+      ${t.p.length ? `<div class="rolagem"><table><thead><tr><th>Referência</th><th>Processo</th><th>Solicitação SYDLE</th><th class="n">Valor</th><th>Data pgto</th><th>Situação</th><th>Empenho vinculado</th><th>Observação</th></tr></thead>
+      <tbody>${linhasP}</tbody><tfoot><tr><td colspan="3">TOTAL PAGO</td><td class="n">${R$(t.pago)}</td><td colspan="4">A pagar: ${R$(t.aberto)}</td></tr></tfoot></table></div>` : '<div class="vazio">Nenhum pagamento registrado.</div>'}`;
+  }
+
+  /* ---------- navegação ---------- */
+  function irPara(cod) { location.hash = cod ? encodeURIComponent(cod) : ''; }
+  function rotear() {
+    const cod = decodeURIComponent(location.hash.slice(1));
+    const i = C.findIndex(c => c.Contrato === cod);
+    document.getElementById('vGeral').classList.toggle('oculto', i >= 0);
+    document.getElementById('vContrato').classList.toggle('oculto', i < 0);
+    if (i >= 0) dashboard(i);
+    window.scrollTo(0, 0);
+  }
+
+  fetch('dados/execucao.json?v=' + Date.now())
+    .then(r => { if (!r.ok) throw new Error('Arquivo de dados não encontrado (dados/execucao.json).'); return r.json(); })
+    .then(json => {
+      C = json.abas.Contratos || []; E = json.abas.Empenhos || []; P = json.abas.Pagamentos || [];
+      document.getElementById('atualizado').textContent = 'Atualizado em ' + new Date(json.atualizadoEm).toLocaleString('pt-BR') + ' · ' + C.length + ' contratos';
+      document.getElementById('sel').innerHTML = C.map((c, i) => `<option value="${i}">${c.Contrato} — ${c.Contratada}</option>`).join('');
+      visaoGeral();
+      window.addEventListener('hashchange', rotear);
+      rotear();
+    })
+    .catch(e => { document.getElementById('atualizado').textContent = ''; document.getElementById('erro').textContent = e.message; });
+</script>
+</body>
+</html>

@@ -105,6 +105,10 @@
   .vazio { color:var(--muted); font-style:italic; padding:18px 20px; }
   .alerta { background:#fdf5e4; border:1px solid #ecd39c; color:var(--ambar-esc); border-radius:10px; padding:10px 14px; font-size:13px; margin-top:12px; }
   #erro { color:var(--verm); font-weight:600; }
+  .fonte-bar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:4px; }
+  .fonte-bar .rot { font-size:12px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:#3d4b5f; margin-right:4px; }
+  .fonte-bar .btn.ativo { background:var(--navy); color:#fff; border-color:var(--navy); }
+  .fonte-bar .aviso { font-size:12px; color:var(--ambar-esc); margin-left:6px; }
   .oculto { display:none; }
 
   @media (max-width:1100px) { .kpis { grid-template-columns:repeat(3,1fr); } .mini, .kpis.k4 { grid-template-columns:repeat(2,1fr); } .ident { grid-template-columns:1fr; } }
@@ -122,6 +126,7 @@
 
 <main>
   <div id="erro"></div>
+  <div class="fonte-bar" id="fonteBar"></div>
 
   <!-- ===================== VISÃO GERAL ===================== -->
   <section id="vGeral">
@@ -174,7 +179,30 @@
   const soma = (l, f) => l.reduce((s, x) => s + cent(x[f]), 0) / 100;
   const hoje = new Date(); hoje.setHours(0,0,0,0);
   const VAL = 'Valor (R$)';
-  let C = [], E = [], P = [];
+  let C = [], E = [], P = [], ET = [], PT = [], FONTE = '';
+  const SEM_FONTE = 'Sem fonte informada';
+
+  /* ---------- filtro por Fonte / UG ----------
+     A fonte é lida da coluna "Fonte / UG". Se estiver vazia, a anulação herda a fonte do
+     empenho de origem e o pagamento herda a do empenho vinculado. */
+  function prepararFontes() {
+    const doNE = {};
+    ET.forEach(x => { if (x.Tipo === 'Empenho' && x['Fonte / UG']) doNE[x['Nº do empenho']] = x['Fonte / UG']; });
+    ET.forEach(x => x._fonte = x['Fonte / UG'] || doNE[x['Empenho de origem']] || doNE[x['Nº do empenho']] || SEM_FONTE);
+    PT.forEach(y => y._fonte = y['Fonte / UG'] || doNE[y['Empenho vinculado']] || SEM_FONTE);
+  }
+  function aplicarFonte(f) {
+    FONTE = f;
+    E = f ? ET.filter(x => x._fonte === f) : ET;
+    P = f ? PT.filter(y => y._fonte === f) : PT;
+    const fontes = [...new Set(ET.map(x => x._fonte).concat(PT.map(y => y._fonte)))].filter(x => x !== SEM_FONTE).sort();
+    const semF = ET.filter(x => x._fonte === SEM_FONTE).length + PT.filter(y => y._fonte === SEM_FONTE).length;
+    document.getElementById('fonteBar').innerHTML = `<span class="rot">Fonte / UG</span>` +
+      ['', ...fontes].map(v => `<button class="btn ${v === f ? 'ativo' : ''}" onclick="aplicarFonte('${v}')">${v || 'Todas'}</button>`).join('') +
+      (f && semF ? `<span class="aviso">⚠ ${semF} linha(s) sem fonte informada ficam fora deste filtro</span>` : '');
+    visaoGeral();
+    rotear(true);
+  }
 
   const rotPg = y => y['Referência'] || y['Solicitação SYDLE'] || y.Processo || 'Pagamento';
   const situacao = c => !c['Fim da vigência'] ? '' :
@@ -209,6 +237,7 @@
     let L = 0, PG = 0, AB = 0, S = 0, AN = 0;
     const linhas = C.map(c => {
       const t = calcular(c.Contrato), tem = t.e.length > 0;
+      if (FONTE && !t.e.length && !t.p.length) return '';
       L += t.liquido; PG += t.pago; AB += t.aberto; S += t.saldo; AN += t.anulTot;
       return `<tr class="clic" onclick="irPara('${c.Contrato}')">
         <td style="white-space:nowrap"><b>${c.Contrato}</b></td><td>${TX(c.Contratada)}<span class="fraco">${TX(c.Categoria)}</span></td>
@@ -289,17 +318,18 @@
 
     // Termômetro
     let termos = '';
-    if (limE) termos += termo(`Empenhado líquido × Limite de empenho (${R$(limE)})`, limE, [{ v: t.liquido, cor: 'azul', nome: 'Empenhado líquido' }], 'var(--navy)');
-    if (limP) termos += termo(`Pagamentos × Limite de pagamento (${R$(limP)})`, limP, [{ v: t.pago, cor: 'verde', nome: 'Pago' }], 'var(--verde-esc)');
-    else if (limE) termos += termo(`Pagamentos × Limite de empenho (${R$(limE)})`, limE, [{ v: t.pago, cor: 'verde', nome: 'Pago' }], 'var(--verde-esc)');
+    if (FONTE) termos += `<div class="alerta" style="margin:0 0 14px">Filtro ${FONTE}: as comparações com limite de empenho, limite de pagamento e valor global ficam ocultas, porque esses valores são do contrato inteiro (todas as fontes).</div>`;
+    if (limE && !FONTE) termos += termo(`Empenhado líquido × Limite de empenho (${R$(limE)})`, limE, [{ v: t.liquido, cor: 'azul', nome: 'Empenhado líquido' }], 'var(--navy)');
+    if (limP && !FONTE) termos += termo(`Pagamentos × Limite de pagamento (${R$(limP)})`, limP, [{ v: t.pago, cor: 'verde', nome: 'Pago' }], 'var(--verde-esc)');
+    else if (limE && !FONTE) termos += termo(`Pagamentos × Limite de empenho (${R$(limE)})`, limE, [{ v: t.pago, cor: 'verde', nome: 'Pago' }], 'var(--verde-esc)');
     termos += termo('Pago + em aberto × Empenhado líquido', t.liquido,
       [{ v: t.pago, cor: 'verde', nome: 'Pago' }, { v: t.aberto, cor: 'ambar', nome: 'Em aberto' }], 'var(--ambar-esc)',
       `Pago ${R$(t.pago)} · Em aberto ${R$(t.aberto)}`);
-    if (c['Valor global (R$)']) termos += termo(`Empenhado líquido × Valor global do contrato (${R$(c['Valor global (R$)'])})`, Number(c['Valor global (R$)']),
+    if (c['Valor global (R$)'] && !FONTE) termos += termo(`Empenhado líquido × Valor global do contrato (${R$(c['Valor global (R$)'])})`, Number(c['Valor global (R$)']),
       [{ v: t.liquido, cor: 'azul', nome: 'Empenhado líquido' }], 'var(--navy)');
     termos += `<div class="legenda"><span><i style="background:var(--azul)"></i>Empenhado líquido — ${R$(t.liquido)}</span>
       <span><i style="background:var(--verde)"></i>Pago — ${R$(t.pago)}</span><span><i style="background:var(--ambar)"></i>Em aberto — ${R$(t.aberto)}</span>
-      ${limE ? `<span><i style="background:#c5ceda"></i>Saldo do limite de empenho — ${R$(limE - t.liquido)}</span>` : ''}</div>`;
+      ${limE && !FONTE ? `<span><i style="background:#c5ceda"></i>Saldo do limite de empenho — ${R$(limE - t.liquido)}</span>` : ''}</div>`;
     document.getElementById('cTermo').innerHTML = termos;
 
     // Composição
@@ -383,24 +413,23 @@
 
   /* ---------- navegação ---------- */
   function irPara(cod) { location.hash = cod ? encodeURIComponent(cod) : ''; }
-  function rotear() {
+  function rotear(manterRolagem) {
     const cod = decodeURIComponent(location.hash.slice(1));
     const i = C.findIndex(c => c.Contrato === cod);
     document.getElementById('vGeral').classList.toggle('oculto', i >= 0);
     document.getElementById('vContrato').classList.toggle('oculto', i < 0);
     if (i >= 0) dashboard(i);
-    window.scrollTo(0, 0);
+    if (manterRolagem !== true) window.scrollTo(0, 0);
   }
 
   fetch('dados/execucao.json?v=' + Date.now())
     .then(r => { if (!r.ok) throw new Error('Arquivo de dados não encontrado (dados/execucao.json).'); return r.json(); })
     .then(json => {
-      C = json.abas.Contratos || []; E = json.abas.Empenhos || []; P = json.abas.Pagamentos || [];
+      C = json.abas.Contratos || []; ET = json.abas.Empenhos || []; PT = json.abas.Pagamentos || []; prepararFontes(); E = ET; P = PT;
       document.getElementById('atualizado').textContent = 'Atualizado em ' + new Date(json.atualizadoEm).toLocaleString('pt-BR') + ' · ' + C.length + ' contratos';
       document.getElementById('sel').innerHTML = C.map((c, i) => `<option value="${i}">${c.Contrato} — ${c.Contratada}</option>`).join('');
-      visaoGeral();
-      window.addEventListener('hashchange', rotear);
-      rotear();
+      window.addEventListener('hashchange', () => rotear());
+      aplicarFonte('');
     })
     .catch(e => { document.getElementById('atualizado').textContent = ''; document.getElementById('erro').textContent = e.message; });
 </script>

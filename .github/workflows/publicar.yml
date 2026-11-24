@@ -9,6 +9,10 @@ permissions:
   pages: write
   id-token: write
 
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
   publicar:
     runs-on: ubuntu-latest
@@ -23,7 +27,7 @@ jobs:
       - run: pip install pandas openpyxl
       - run: python scripts/converter.py
       - run: python scripts/converter_siafe.py
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: site
       - id: deploy

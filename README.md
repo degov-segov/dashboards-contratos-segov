@@ -2,34 +2,35 @@
 
 Publicados em https://degov-segov.github.io/dashboards-contratos-segov/
 
-- **Execução Contratual** (página inicial, verde-petróleo): contratos com valor global, vigência e limites, execução vinda do SIAFE.
-- **Painel SIAFE** (`/siafe/`, violeta): visão orçamentária e financeira do relatório do SIAFE.
+| Painel | Endereço | De onde vêm os dados |
+|---|---|---|
+| **Execução Contratual** (verde-petróleo) | página inicial | `Planilhas/contratos.xlsx` — abas **Contratos**, **Empenhos** e **Pagamentos** (lançamento manual) |
+| **Painel SIAFE** (violeta) | `/siafe/` | Relatórios do SIAFE-CE em `Planilhas/SIAFE/` (um por Unidade Gestora) |
 
-## Modelo de atualização
+O Painel SIAFE serve também de conferência: compare com a Execução Contratual para encontrar lançamentos que faltam na planilha.
 
-| O que | Onde | Quem atualiza | Quando |
-|---|---|---|---|
-| Empenhos, liquidações e pagamentos | `Planilhas/SIAFE/` — relatórios do SIAFE-CE | Upload do relatório, sem editar | Sempre que quiser atualizar os números |
-| Cadastro dos contratos (valor global, vigência, limites) | `Planilhas/contratos.xlsx`, aba **Contratos** | Digitação | Contrato novo, aditivo ou mudança de limite |
-| Empenhos sem código de contrato na observação | `Planilhas/contratos.xlsx`, aba **Vínculos SIAFE** | Digitação (Nº do empenho → Contrato) | Quando o painel avisar |
+## Como lançar empenhos e pagamentos (Execução Contratual)
 
-As abas Empenhos e Pagamentos da contratos.xlsx não são mais usadas pelos painéis e podem ficar como histórico.
+1. Baixe a `Planilhas/contratos.xlsx` do repositório (abra o arquivo › botão de download).
+2. Na aba **Empenhos** ou **Pagamentos**, acrescente uma linha ao final da tabela, uma por registro.
+   - **Contrato**: escolha na lista (mesmo código da aba Contratos).
+   - **Empenhos**: Tipo = Empenho (valor positivo) ou Anulação (valor negativo, com o Empenho de origem preenchido). Fonte / UG obrigatória na linha do Empenho.
+   - **Pagamentos**: Empenho vinculado = número do empenho; Situação = Pago ou Em aberto. Fonte / UG em branco herda a do empenho.
+   - Valores só com números (sem "R$"); datas como data.
+3. Salve e envie para a pasta `Planilhas` (Add file › Upload files › Commit changes). O GitHub substitui a versão anterior.
+4. Acompanhe na aba **Actions** (1 a 2 minutos) e atualize o painel com Ctrl+F5.
 
-## Como atualizar os dados do SIAFE
+## Como atualizar o Painel SIAFE
 
-1. No SIAFE-CE, gere o relatório **Detalhamento das Despesas - Empenho, Liquidação e Pagamento - Ordem Cronológica**,
-   com o filtro da Unidade Gestora e das unidades orçamentárias da SEGOV, e exporte em Excel (.xlsx).
-   Faça um relatório para cada Unidade Gestora: **040001 (Contrapartida)** e **040101 (Fermoju)**.
-2. Antes de enviar, apague o conteúdo da coluna H (**Credor**) nas linhas de pessoas físicas, ou da coluna inteira
-   (mantendo o título): o repositório é público e o relatório traz CPF completo.
-3. No GitHub, abra `Planilhas/SIAFE` › **Add file** › **Upload files**, envie os arquivos e clique em **Commit changes**.
-4. Acompanhe a publicação na aba **Actions** (1 a 2 minutos) e atualize o painel com Ctrl+F5.
-
-Para cada Unidade Gestora vale o relatório mais recente da pasta (data "Impresso em"); os antigos podem ser apagados.
+1. No SIAFE-CE, exporte o relatório **Detalhamento das Despesas - Empenho, Liquidação e Pagamento - Ordem Cronológica**
+   para a UG **040001** e para a UG **040101** (UOs 04100191 e 04200211), em Excel.
+2. Esvazie a coluna H (**Credor**), mantendo o título: o repositório é público e o relatório traz CPF.
+3. Salve como `SIAFE_040001_Contrapartida.xlsx` e `SIAFE_040101_Fermoju.xlsx` e envie para `Planilhas/SIAFE`
+   (os arquivos com o mesmo nome são substituídos).
 
 ## Estrutura
 
-- `scripts/converter_siafe.py` — junta os relatórios do SIAFE com o cadastro e gera `site/siafe/dados/siafe.json`.
-- `scripts/converter.py` — conversor da planilha antiga (mantido por compatibilidade).
-- `site/index.html` — painel de Execução Contratual · `site/siafe/index.html` — Painel SIAFE · `site/graficos.js` — gráficos.
+- `scripts/converter.py` — lê a contratos.xlsx e gera `site/dados/execucao.json` (Execução Contratual).
+- `scripts/converter_siafe.py` — lê os relatórios do SIAFE e gera `site/siafe/dados/siafe.json` (Painel SIAFE).
+- `site/index.html`, `site/siafe/index.html`, `site/graficos.js` — páginas e gráficos.
 - `.github/workflows/publicar.yml` — roda os conversores e publica no GitHub Pages a cada envio.

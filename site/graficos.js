@@ -9,6 +9,9 @@
     return R$(v);
   };
   const P = v => (v == null || !isFinite(v)) ? '—' : (v * 100).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+  const HATCH = 'repeating-linear-gradient(135deg,#1f9d68 0 3px,#c9ecd9 3px 7px)';
+  const fundo = s => s.hatch ? HATCH : s.cor;
+  let nPadrao = 0;
   const H = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   /* ---------- estilos ---------- */
@@ -91,6 +94,8 @@
     if (!tot) { el.innerHTML = '<div class="g-vazio">Sem valores para exibir.</div>'; return; }
     const R = 70, r = 46, cx = 75, cy = 75, gap = segs.length > 1 ? 0.012 : 0;
     let a0 = -Math.PI / 2;
+    const pid = 'gh' + (++nPadrao);
+    const defs = segs.some(s => s.hatch) ? `<defs><pattern id="${pid}" patternUnits="userSpaceOnUse" width="7" height="7" patternTransform="rotate(45)"><rect width="7" height="7" fill="#c9ecd9"/><rect width="3" height="7" fill="#1f9d68"/></pattern></defs>` : '';
     const arcos = segs.map(s => {
       const ang = s.v / tot * Math.PI * 2, a1 = a0 + ang;
       const ini = a0 + gap, fim = Math.max(ini + 0.0001, a1 - gap);
@@ -100,13 +105,13 @@
         ? `M ${cx} ${cy - R} A ${R} ${R} 0 1 1 ${cx - 0.01} ${cy - R} L ${cx - 0.01} ${cy - r} A ${r} ${r} 0 1 0 ${cx} ${cy - r} Z`
         : `M ${p(R, ini)} A ${R} ${R} 0 ${larg} 1 ${p(R, fim)} L ${p(r, fim)} A ${r} ${r} 0 ${larg} 0 ${p(r, ini)} Z`;
       a0 = a1;
-      return `<path d="${d}" fill="${s.cor}" ${tipAttr(`<div class="t">${H(s.rot)}</div>${R$(s.v)} · ${P(s.v / tot)} do total`)}></path>`;
+      return `<path d="${d}" fill="${s.hatch ? `url(#${pid})` : s.cor}" ${tipAttr(`<div class="t">${H(s.rot)}</div>${R$(s.v)} · ${P(s.v / tot)} do total`)}></path>`;
     }).join('');
     el.innerHTML = `<div class="g-donut">
-      <svg viewBox="0 0 150 150" role="img" aria-label="${H(o.titulo || 'Gráfico de rosca')}">${arcos}
+      <svg viewBox="0 0 150 150" role="img" aria-label="${H(o.titulo || 'Gráfico de rosca')}">${defs}${arcos}
         <text x="75" y="72" text-anchor="middle" style="font:800 14px Inter,system-ui,sans-serif;fill:#10213d">${H(o.centro || R$c(tot))}</text>
         <text x="75" y="89" text-anchor="middle" style="font:11px Inter,system-ui,sans-serif;fill:#66758a">${H(o.centroSub || 'total')}</text></svg>
-      <ul class="g-leg">${segs.map(s => `<li class="${s.destaque ? 'sel' : ''}"><i style="background:${s.cor}"></i><span>${H(s.rot)}</span>
+      <ul class="g-leg">${segs.map(s => `<li class="${s.destaque ? 'sel' : ''}"><i style="background:${fundo(s)}"></i><span>${H(s.rot)}</span>
         <span class="v">${R$(s.v)}<small>${P(s.v / tot)}</small></span></li>`).join('')}</ul></div>`;
     ligarDicas(el);
   }
@@ -117,16 +122,16 @@
     el.classList.add('g-hb');
     el.innerHTML = o.linhas.map((l, i) => {
       const base = l.base || l.segs.reduce((s, x) => s + Math.max(0, x.v), 0);
-      const tipHtml = `<div class="t">${H(l.rot)}</div>` + l.segs.map(s => linhaTip(s.cor, s.rot, `${R$(s.v)} · ${P(base ? s.v / base : null)}`)).join('') +
+      const tipHtml = `<div class="t">${H(l.rot)}</div>` + l.segs.map(s => linhaTip(fundo(s), s.rot, `${R$(s.v)} · ${P(base ? s.v / base : null)}`)).join('') +
         `<div class="l" style="margin-top:4px;border-top:1px solid #2c3e5c;padding-top:4px"><span>${H(o.rotTotal || 'Total')}</span><b>${R$(base)}</b></div>`;
       const segs = l.segs.filter(s => s.v > 0).map(s => {
         const w = base ? s.v / base * 100 : 0;
-        return `<div class="${s.claro ? 'claro' : ''}" style="width:${w}%;background:${s.cor}">${w >= 13 ? P(s.v / base) : ''}</div>`;
+        return `<div class="${s.claro || s.hatch ? 'claro' : ''}" style="width:${w}%;background:${fundo(s)}">${w >= 13 ? P(s.v / base) : ''}</div>`;
       }).join('');
       return `<div class="row ${l.onclick ? 'clic' : ''}" data-i="${i}" ${tipAttr(tipHtml)}>
         <div class="nm"><b>${H(l.rot)}</b>${l.sub ? ` <span>· ${H(l.sub)}</span>` : ''}</div>
         <div class="tr">${segs}</div><div class="tt">${R$c(base)}<small>${H(l.nota || '')}</small></div></div>`;
-    }).join('') + `<div class="g-legh">${o.legenda.map(s => `<span><i style="background:${s.cor}"></i>${H(s.rot)}</span>`).join('')}</div>`;
+    }).join('') + `<div class="g-legh">${o.legenda.map(s => `<span><i style="background:${fundo(s)}"></i>${H(s.rot)}</span>`).join('')}</div>`;
     el.querySelectorAll('.row.clic').forEach(r => r.addEventListener('click', () => { dica(null); o.linhas[+r.dataset.i].onclick(); }));
     ligarDicas(el);
   }
@@ -208,5 +213,5 @@
   }
   const rotMes = (m, a) => MESES[m][0].toUpperCase() + MESES[m].slice(1) + (a ? '/' + String(a).slice(2) : '');
 
-  window.G = { donut, barras100, ranking, colunas, alertas, mesRef, rotMes, R$c };
+  window.G = { HATCH, donut, barras100, ranking, colunas, alertas, mesRef, rotMes, R$c };
 })();

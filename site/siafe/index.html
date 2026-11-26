@@ -113,6 +113,17 @@
 </style>
 <style>
   .kpis.k5 { grid-template-columns:repeat(5,1fr); }
+  /* pago com OB (sólido ✓) × sem OB (listrado ◐) */
+  .seg.hatch { background:repeating-linear-gradient(135deg,#1f9d68 0 3px,#c9ecd9 3px 7px); color:#0f3d2a; text-shadow:0 0 3px #fff, 0 0 3px #fff; justify-content:center; }
+  .sl { display:inline-block; font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:999px; white-space:nowrap; margin-top:2px; }
+  .sl-ob { background:#e8f7f0; color:#14754e; border:1px solid #b6e2cd; }
+  .sl-sem { background:repeating-linear-gradient(135deg,#e8f7f0 0 4px,#ffffff 4px 8px); color:#14754e; border:1px dashed #1f9d68; }
+  .t-semob { background:repeating-linear-gradient(135deg,#d7f0e3 0 4px,#ffffff 4px 8px); color:#14754e; border:1px dashed #1f9d68 !important; }
+  .val-sem { display:inline-block; padding:1px 6px; border-radius:5px; border:1px dashed #1f9d68; background:repeating-linear-gradient(135deg,#eef9f3 0 4px,#fff 4px 8px); color:#14754e; font-weight:700; }
+  tr.lin-sem td:first-child { box-shadow:inset 4px 0 0 0 #1f9d68; }
+  .m-semob { background:repeating-linear-gradient(135deg,#eef9f3 0 6px,#fff 6px 12px); border:1px dashed #1f9d68 !important; color:#14754e; }
+  .kpi.semob { border-top:4px dashed #1f9d68; background:repeating-linear-gradient(135deg,#f3fbf7 0 6px,#fff 6px 12px); }
+  .minibar .tr { display:flex; }
   .hwrap a.btn { text-decoration:none; }
   .busca { font-size:14px; padding:9px 12px; border:1px solid #c9d5e5; border-radius:9px; background:#fff; color:var(--navy); min-width:280px; }
   .barras .linha { display:grid; grid-template-columns:260px 1fr 150px; gap:14px; align-items:center; padding:7px 0; border-bottom:1px dashed #eef2f7; cursor:pointer; }
@@ -143,13 +154,13 @@
 
   <!-- ===================== VISÃO GERAL ===================== -->
   <section id="vGeral">
-    <div class="secao">Consolidado — empenhado, liquidado e pago</div>
+    <div class="secao">Consolidado — empenhado e pago</div>
     <div class="kpis k5" id="gKpis"></div>
 
     <div class="secao">Panorama</div>
     <div class="g-grid">
-      <div class="g-card"><h3>Estágios da despesa</h3><div class="g-sub">Composição do empenhado</div><div id="gDonEst"></div></div>
-      <div class="g-card"><h3>Destino do valor pago</h3><div class="g-sub">Pago ao credor × retenções recolhidas</div><div id="gDonPago"></div></div>
+      <div class="g-card"><h3>Pago sobre o empenhado</h3><div class="g-sub">✓ com OB · ◐ sem OB · saldo do empenho</div><div id="gDonEst"></div></div>
+      <div class="g-card"><h3>Destino do valor pago</h3><div class="g-sub">Credor e retenções com OB × valor ainda sem OB</div><div id="gDonPago"></div></div>
       <div class="g-card"><h3>Semáforo de alertas</h3><div class="g-sub">Clique em um alerta para abrir o contrato</div><div id="gAlertas"></div></div>
     </div>
 
@@ -186,7 +197,7 @@
     <div class="secao">Notas de empenho</div>
     <div class="tab" id="cEmp"></div>
 
-    <div class="secao">Liquidações e pagamentos (ordem cronológica)</div>
+    <div class="secao">Pagamentos (ordem cronológica do SIAFE)</div>
     <div class="tab" id="cLiq"></div>
 
     <div class="secao">Retenções por beneficiário</div>
@@ -212,16 +223,32 @@
   const minibar = p => `<div class="minibar">${P2(p)}<span class="tr"><i style="width:${Math.min(100, (p || 0) * 100)}%"></i></span></div>`;
   let D = null, L = [], CAD = {}, CONTRATOS = [];
 
+  /* ---------- PAGO: com OB (sólido ✓) × sem OB (listrado ◐) ----------
+     Pago = pagamento processado no SIAFE (nota de liquidação).
+     Com OB = já tem ordem bancária (dinheiro saiu). Sem OB = processado, aguardando ordem bancária. */
+  const COR = { ob:'#1f9d68', saldo:'#c5ceda', credor:'#6250d6', ret:'#e87ba4' };
+  const HATCH = 'repeating-linear-gradient(135deg,#1f9d68 0 3px,#c9ecd9 3px 7px)';
+  const selo = {
+    ob:  v => `<span class="sl sl-ob" title="Pago com ordem bancária">✓ com OB${v != null ? ' ' + R$(v) : ''}</span>`,
+    sem: v => `<span class="sl sl-sem" title="Pago sem ordem bancária (aguardando OB)">◐ sem OB${v != null ? ' ' + R$(v) : ''}</span>`,
+  };
+  const legendaPago = `<div class="legenda"><span><i style="background:${COR.ob}"></i>✓ Pago com OB</span><span><i style="background:${HATCH}"></i>◐ Pago sem OB (aguardando ordem bancária)</span><span><i style="background:${COR.saldo}"></i>Saldo do empenho</span></div>`;
+  // barra de dois tons (com OB + sem OB) sobre o empenhado
+  const minibar2 = t => { const b = t.emp || 1;
+    return `<div class="minibar">${P2(t.perc)}<span class="tr"><i style="width:${Math.min(100, t.ob / b * 100)}%;border-radius:4px 0 0 4px"></i><i style="width:${Math.min(100, t.semOB / b * 100)}%;background:${HATCH};border-radius:0 4px 4px 0"></i></span></div>`; };
+  // célula de valor pago com detalhamento
+  const celPago = t => `<b>${R$(t.pago)}</b>${t.semOB > 0 ? `<span class="fraco">${selo.ob(t.ob)}<br>${selo.sem(t.semOB)}</span>` : (t.pago > 0 ? `<span class="fraco">${selo.ob()}</span>` : '')}`;
+
   /* ---------- agregações ---------- */
   function totais(l) {
-    const emp = soma(l, 'emp'), liq = soma(l, 'liq'), pago = soma(l, 'pago');
-    return { emp, liq, pago, aLiq: dif(emp, liq), aPagar: dif(liq, pago), perc: emp ? pago / emp : null };
+    const emp = soma(l, 'emp'), pago = soma(l, 'liq'), ob = soma(l, 'pago');
+    return { emp, pago, ob, semOB: dif(pago, ob), saldo: dif(emp, pago), perc: emp ? pago / emp : null, percOB: emp ? ob / emp : null };
   }
   function situacaoNE(t) {
-    if (t.emp > 0 && cent(t.pago) === cent(t.emp)) return '<span class="tag t-pago">Executado</span>';
-    if (t.aPagar > 0) return '<span class="tag t-ab">Liquidado a pagar</span>';
-    if (t.liq === 0) return '<span class="tag t-sem">A liquidar</span>';
-    return '<span class="tag t-liq">Com saldo a liquidar</span>';
+    if (t.pago === 0) return '<span class="tag t-sem">Sem pagamento</span>';
+    const total = cent(t.pago) >= cent(t.emp);
+    if (t.semOB > 0) return `<span class="tag t-semob">${total ? 'Pago' : 'Pago parcial'} · ◐ aguardando OB</span>`;
+    return total ? '<span class="tag t-pago">✓ Pago com OB</span>' : '<span class="tag t-liq">✓ Pago parcial com OB</span>';
   }
   function montarContratos() {
     const mapa = new Map();
@@ -238,33 +265,32 @@
   }
 
   /* ---------- gráficos da visão geral ---------- */
-  const COR = { pago:'#1f9d68', aPagar:'#d08a00', aLiq:'#c5ceda', credor:'#6250d6', ret:'#e87ba4' };
   const ehRet = x => x.tipo === 'Retenção';
   const nomeRet = r => (r || 'Não informado').replace(/^[\d.*\/-]+\s*-\s*/, '');
+  const segsPago = t => [{ rot: '✓ Pago com OB', v: t.ob, cor: COR.ob }, { rot: '◐ Pago sem OB', v: t.semOB, cor: COR.ob, hatch: true }, { rot: 'Saldo do empenho', v: t.saldo, cor: COR.saldo, claro: true }];
   function graficosGerais(T) {
     const pagos = L.filter(x => x.ob && x.pago), ret = soma(pagos.filter(ehRet), 'pago'), cred = soma(pagos.filter(x => !ehRet(x)), 'pago');
-    G.donut(document.getElementById('gDonEst'), { titulo: 'Estágios da despesa', centro: P2(T.perc), centroSub: 'pago',
-      segs: [{ rot: 'Pago', v: T.pago, cor: COR.pago }, { rot: 'Liquidado a pagar', v: T.aPagar, cor: COR.aPagar }, { rot: 'Empenhado a liquidar', v: T.aLiq, cor: COR.aLiq }] });
+    G.donut(document.getElementById('gDonEst'), { titulo: 'Pago sobre o empenhado', centro: P2(T.perc), centroSub: 'pago', segs: segsPago(T) });
     G.donut(document.getElementById('gDonPago'), { titulo: 'Destino do valor pago', centroSub: 'pago',
-      segs: [{ rot: 'Pago ao credor', v: cred, cor: COR.credor }, { rot: 'Retenções recolhidas', v: ret, cor: COR.ret }] });
+      segs: [{ rot: '✓ Ao credor (com OB)', v: cred, cor: COR.credor }, { rot: '✓ Retenções (com OB)', v: ret, cor: COR.ret }, { rot: '◐ Sem OB (aguardando)', v: T.semOB, cor: COR.ob, hatch: true }] });
 
     const al = [];
     CONTRATOS.forEach(c => {
       const nome = `${c.cod} · ${c.nome}`, ir = () => irPara(c.cod), t = c.t;
-      if (t.aPagar > 0) al.push({ nivel: 'atencao', titulo: nome, texto: `Liquidado a pagar ${G.R$c(t.aPagar)} · aguardando ordem bancária`, onclick: ir });
-      if (t.aLiq > 0 && t.emp && t.aLiq / t.emp >= 0.3) al.push({ nivel: 'atencao', titulo: nome, texto: `${P2(t.aLiq / t.emp)} do empenhado ainda sem liquidação (${G.R$c(t.aLiq)})`, onclick: ir });
+      if (t.semOB > 0) al.push({ nivel: 'atencao', titulo: nome, texto: `◐ ${G.R$c(t.semOB)} pagos sem ordem bancária (${P2(t.pago ? t.semOB / t.pago : null)} do pago)`, onclick: ir });
+      if (t.saldo > 0 && t.emp && t.saldo / t.emp >= 0.3) al.push({ nivel: 'atencao', titulo: nome, texto: `${P2(t.saldo / t.emp)} do empenhado ainda sem pagamento (${G.R$c(t.saldo)})`, onclick: ir });
       const lim = c.cad.limiteEmpenho;
       if (lim && t.emp > lim) al.push({ nivel: 'critico', titulo: nome, texto: `Empenhado acima do limite de empenho 2026 (${P2(t.emp / lim)})`, onclick: ir });
     });
     const ok = CONTRATOS.filter(c => !al.some(a => a.titulo === `${c.cod} · ${c.nome}`)).length;
-    if (ok) al.push({ nivel: 'ok', titulo: `${ok} contrato(s) sem alertas`, texto: 'Sem valores liquidados a pagar e com empenho em execução' });
+    if (ok) al.push({ nivel: 'ok', titulo: `${ok} contrato(s) sem alertas`, texto: 'Todo o valor pago já tem ordem bancária' });
     G.alertas(document.getElementById('gAlertas'), al);
 
     G.barras100(document.getElementById('gBarras'), { rotTotal: 'Empenhado',
-      legenda: [{ rot: 'Pago', cor: COR.pago }, { rot: 'Liquidado a pagar', cor: COR.aPagar }, { rot: 'Empenhado a liquidar', cor: COR.aLiq }],
-      linhas: CONTRATOS.slice().sort((a, b) => (b.t.perc || 0) - (a.t.perc || 0)).map(c => ({ rot: c.cod, sub: c.nome, base: c.t.emp, nota: P2(c.t.perc) + ' pago',
-        segs: [{ rot: 'Pago', v: c.t.pago, cor: COR.pago }, { rot: 'Liquidado a pagar', v: c.t.aPagar, cor: COR.aPagar }, { rot: 'A liquidar', v: c.t.aLiq, cor: COR.aLiq, claro: true }],
-        onclick: () => irPara(c.cod) })) });
+      legenda: [{ rot: '✓ Pago com OB', cor: COR.ob }, { rot: '◐ Pago sem OB', cor: COR.ob, hatch: true }, { rot: 'Saldo do empenho', cor: COR.saldo }],
+      linhas: CONTRATOS.slice().sort((a, b) => (b.t.perc || 0) - (a.t.perc || 0)).map(c => ({ rot: c.cod, sub: c.nome, base: c.t.emp,
+        nota: P2(c.t.perc) + ' pago' + (c.t.semOB > 0 ? ' · ◐ ' + P2(c.t.semOB / c.t.emp) + ' sem OB' : ''),
+        segs: segsPago(c.t), onclick: () => irPara(c.cod) })) });
 
     const ben = new Map();
     pagos.filter(ehRet).forEach(x => ben.set(nomeRet(x.retencao), (ben.get(nomeRet(x.retencao)) || 0) + x.pago));
@@ -277,10 +303,10 @@
     const T = totais(L);
     document.getElementById('gKpis').innerHTML = [
       ['azul', 'Empenhado', R$(T.emp), unicos(L.map(x => x.ne)).length + ' notas de empenho · ' + CONTRATOS.length + ' contratos'],
-      ['', 'Liquidado', R$(T.liq), P2(T.emp ? T.liq / T.emp : null) + ' do empenhado'],
-      ['verde', 'Pago', R$(T.pago), P2(T.perc) + ' do empenhado'],
-      ['ambar', 'Liquidado a pagar', R$(T.aPagar), 'Liquidado − pago'],
-      ['cinza', 'Empenhado a liquidar', R$(T.aLiq), 'Empenhado − liquidado'],
+      ['verde', 'Pago', R$(T.pago), P2(T.perc) + ' do empenhado · com e sem OB'],
+      ['verde ob', '✓ Pago com OB', R$(T.ob), 'Ordem bancária emitida · ' + P2(T.pago ? T.ob / T.pago : null) + ' do pago'],
+      ['verde semob', '◐ Pago sem OB', R$(T.semOB), 'Aguardando ordem bancária · ' + P2(T.pago ? T.semOB / T.pago : null) + ' do pago'],
+      ['cinza', 'Saldo do empenho', R$(T.saldo), 'Empenhado ainda sem pagamento'],
     ].map(k => kpi(...k)).join('');
 
     graficosGerais(T);
@@ -289,19 +315,20 @@
     const lista = CONTRATOS.filter(c => !q || [c.cod, c.nome, c.credor, c.objeto].join(' ').toLowerCase().includes(q));
     const S = totais(lista.flatMap(c => c.linhas));
     document.getElementById('gTabela').innerHTML =
-      `<thead><tr><th>Contrato</th><th>Contratada / objeto</th><th class="n">Empenhos</th><th class="n">Empenhado</th><th class="n">Liquidado</th>
-       <th class="n">Pago</th><th class="n">Liquidado a pagar</th><th class="n">A liquidar</th><th class="n">% pago</th></tr></thead>
+      `<thead><tr><th>Contrato</th><th>Contratada / objeto</th><th class="n">Empenhos</th><th class="n">Empenhado</th>
+       <th class="n">Pago (total)</th><th class="n">✓ Com OB</th><th class="n">◐ Sem OB</th><th class="n">Saldo do empenho</th><th class="n">% pago</th></tr></thead>
        <tbody>${lista.map(c => `<tr class="clic" onclick="irPara('${c.cod}')">
          <td style="white-space:nowrap"><b>${H(c.cod)}</b></td>
          <td>${H(c.nome)}<span class="fraco">${H(corta(c.objeto, 110))}</span></td>
-         <td class="n">${c.nes.length}</td><td class="n">${R$(c.t.emp)}</td><td class="n">${R$(c.t.liq)}</td><td class="n">${R$(c.t.pago)}</td>
-         <td class="n">${c.t.aPagar ? R$(c.t.aPagar) : '—'}</td><td class="n">${c.t.aLiq ? R$(c.t.aLiq) : '—'}</td><td class="n">${minibar(c.t.perc)}</td></tr>`).join('')
+         <td class="n">${c.nes.length}</td><td class="n">${R$(c.t.emp)}</td><td class="n"><b>${R$(c.t.pago)}</b></td>
+         <td class="n">${c.t.ob ? R$(c.t.ob) : '—'}</td><td class="n">${c.t.semOB > 0 ? `<span class="val-sem">${R$(c.t.semOB)}</span>` : '—'}</td>
+         <td class="n">${c.t.saldo ? R$(c.t.saldo) : '—'}</td><td class="n">${minibar2(c.t)}</td></tr>`).join('')
          || '<tr><td colspan="9" class="vazio">Nenhum contrato encontrado.</td></tr>'}</tbody>
-       <tfoot><tr><td colspan="3">TOTAL${q ? ' (filtrado)' : ''}</td><td class="n">${R$(S.emp)}</td><td class="n">${R$(S.liq)}</td><td class="n">${R$(S.pago)}</td>
-       <td class="n">${R$(S.aPagar)}</td><td class="n">${R$(S.aLiq)}</td><td class="n">${P2(S.perc)}</td></tr></tfoot>`;
+       <tfoot><tr><td colspan="3">TOTAL${q ? ' (filtrado)' : ''}</td><td class="n">${R$(S.emp)}</td><td class="n">${R$(S.pago)}</td><td class="n">${R$(S.ob)}</td>
+       <td class="n">${R$(S.semOB)}</td><td class="n">${R$(S.saldo)}</td><td class="n">${P2(S.perc)}</td></tr></tfoot>`;
   }
 
-  /* ---------- termômetro ---------- */
+  /* ---------- termômetros ---------- */
   function termo(titulo, base, v, cor, corPct) {
     if (!base) return '';
     const pct = v / base, estouro = v > base, w = Math.min(100, v / Math.max(base, v) * 100);
@@ -309,21 +336,27 @@
       <div class="trilho"><div class="seg ${estouro ? 'estouro' : cor}" style="width:${w}%">${w > 14 ? R$(v) : ''}</div></div>
       <div class="ref"><span>${R$(v)}</span><span>de ${R$(base)}</span></div></div>`;
   }
+  function termoPago(t) {
+    if (!t.emp) return '';
+    const wOB = Math.min(100, t.ob / t.emp * 100), wSem = Math.min(100 - wOB, t.semOB / t.emp * 100);
+    return `<div class="termo"><div class="lin"><span>Pago × Empenhado</span><span class="pct" style="color:var(--verde-esc)">${P2(t.perc)}</span></div>
+      <div class="trilho">${wOB ? `<div class="seg verde" style="width:${wOB}%">${wOB > 14 ? '✓ ' + R$(t.ob) : ''}</div>` : ''}${wSem ? `<div class="seg hatch" style="width:${wSem}%">${wSem > 14 ? '◐ ' + R$(t.semOB) : ''}</div>` : ''}</div>
+      <div class="ref"><span>✓ com OB ${R$(t.ob)} · ◐ sem OB ${R$(t.semOB)} · total ${R$(t.pago)}</span><span>de ${R$(t.emp)}</span></div></div>`;
+  }
 
   /* ---------- PAINEL DO CONTRATO ---------- */
   function dashboard(c) {
     document.getElementById('sel').value = c.cod;
     const t = c.t, l = c.linhas, cad = c.cad;
     const pagos = l.filter(x => x.ob && x.pago);
-    const aoCredor = soma(pagos.filter(x => x.tipo !== 'Retenção'), 'pago'), ret = soma(pagos.filter(x => x.tipo === 'Retenção'), 'pago');
+    const aoCredor = soma(pagos.filter(x => !ehRet(x)), 'pago'), ret = soma(pagos.filter(ehRet), 'pago');
     const nls = unicos(l.map(x => x.nl));
 
-    // Identificação
     const fim = cad.fimVigencia ? (new Date(cad.fimVigencia) < new Date() ? '<span class="tag t-enc">Encerrado</span>' : '<span class="tag t-vig">Vigente</span>') : '';
     document.getElementById('cIdent').innerHTML = `
       <div><h2>${H(c.cod)} · ${H(c.nome)} ${fim}</h2>
         <div class="obj">${H(c.objeto)}</div>
-        <div class="nota">Dados extraídos do SIAFE-CE. O contrato é identificado pelo código citado na observação dos empenhos.</div></div>
+        <div class="nota">Dados extraídos do SIAFE-CE. Pago = pagamento processado (nota de liquidação). ${selo.ob()} = ordem bancária emitida; ${selo.sem()} = aguardando ordem bancária.</div></div>
       <dl>
         <dt>Credor (SIAFE)</dt><dd>${H(c.credor)}</dd>
         <dt>CPF/CNPJ</dt><dd class="mono">${H(c.doc)}</dd>
@@ -334,71 +367,66 @@
         ${cad.fimVigencia ? `<dt>Fim da vigência</dt><dd>${DT(cad.fimVigencia)}</dd>` : ''}
       </dl>`;
 
-    // Indicadores
     document.getElementById('cKpis').innerHTML = [
       ['azul', 'Empenhado', R$(t.emp), c.nes.length + ' nota(s) de empenho'],
-      ['', 'Liquidado', R$(t.liq), nls.length + ' liquidação(ões) · ' + P2(t.emp ? t.liq / t.emp : null)],
-      ['verde', 'Pago', R$(t.pago), unicos(pagos.map(x => x.ob)).length + ' ordem(ns) bancária(s) · ' + P2(t.perc)],
-      ['ambar', 'Liquidado a pagar', R$(t.aPagar), 'Liquidado − pago'],
-      ['cinza', 'Empenhado a liquidar', R$(t.aLiq), 'Empenhado − liquidado'],
-      ['verm', 'Retenções', R$(ret), P2(t.pago ? ret / t.pago : null) + ' do valor pago'],
+      ['verde', 'Pago', R$(t.pago), nls.length + ' pagamento(s) processado(s) · ' + P2(t.perc)],
+      ['verde ob', '✓ Pago com OB', R$(t.ob), unicos(pagos.map(x => x.ob)).length + ' ordem(ns) bancária(s)'],
+      ['verde semob', '◐ Pago sem OB', R$(t.semOB), 'Aguardando ordem bancária'],
+      ['cinza', 'Saldo do empenho', R$(t.saldo), 'Empenhado ainda sem pagamento'],
+      ['verm', 'Retenções (com OB)', R$(ret), P2(t.ob ? ret / t.ob : null) + ' do pago com OB'],
     ].map(k => kpi(...k)).join('');
 
-    // Termômetro
-    document.getElementById('cTermo').innerHTML =
-      termo('Liquidado × Empenhado', t.emp, t.liq, 'azul', 'var(--navy)') +
-      termo('Pago × Empenhado', t.emp, t.pago, 'verde', 'var(--verde-esc)') +
+    document.getElementById('cTermo').innerHTML = termoPago(t) +
       (cad.limiteEmpenho ? termo(`Empenhado × Limite de empenho 2026 (${R$(cad.limiteEmpenho)})`, cad.limiteEmpenho, t.emp, 'azul', 'var(--navy)') : '') +
-      (cad.valorGlobal ? termo(`Empenhado × Valor global do contrato (${R$(cad.valorGlobal)})`, cad.valorGlobal, t.emp, 'azul', 'var(--navy)') : '');
+      (cad.valorGlobal ? termo(`Empenhado × Valor global do contrato (${R$(cad.valorGlobal)})`, cad.valorGlobal, t.emp, 'azul', 'var(--navy)') : '') + legendaPago;
 
-    // Composição
-    const segs = [{ v: t.pago, c: 'verde', n: 'Pago' }, { v: t.aPagar, c: 'ambar', n: 'Liquidado a pagar' }, { v: t.aLiq, c: 'cinza', n: 'A liquidar' }]
+    const segs = [{ v: t.ob, c: 'verde', n: '✓ Pago com OB' }, { v: t.semOB, c: 'hatch', n: '◐ Pago sem OB' }, { v: t.saldo, c: 'cinza', n: 'Saldo do empenho' }]
       .filter(s => s.v > 0).map(s => { const w = t.emp ? s.v / t.emp * 100 : 0;
         return `<div class="seg ${s.c}" style="width:${w}%;justify-content:center" title="${s.n}: ${R$(s.v)}">${w > 12 ? s.n + ' ' + P2(w / 100) : ''}</div>`; }).join('');
     document.getElementById('cComp').innerHTML = `
       <div class="trilho" style="height:34px">${segs}</div>
-      <div class="legenda"><span><i style="background:var(--verde)"></i>Pago</span><span><i style="background:var(--ambar)"></i>Liquidado a pagar</span><span><i style="background:#c5ceda"></i>Empenhado a liquidar</span></div>
+      ${legendaPago}
       <div class="mini">
-        <div class="m-verde"><span>Pago ao credor</span><strong>${R$(aoCredor)}</strong><small>PD orçamentárias (líquido de retenções)</small></div>
-        <div class="m-azul"><span>Retenções recolhidas</span><strong>${R$(ret)}</strong><small>Tributos e consignações pagos a terceiros</small></div>
-        <div class="m-ambar"><span>Liquidado a pagar</span><strong>${R$(t.aPagar)}</strong><small>Aguardando ordem bancária</small></div>
-        <div class="m-cinza"><span>Empenhado a liquidar</span><strong>${R$(t.aLiq)}</strong><small>Saldo de empenho sem liquidação</small></div>
+        <div class="m-verde"><span>✓ Ao credor (com OB)</span><strong>${R$(aoCredor)}</strong><small>Líquido de retenções</small></div>
+        <div class="m-azul"><span>✓ Retenções (com OB)</span><strong>${R$(ret)}</strong><small>Tributos e consignações recolhidos</small></div>
+        <div class="m-semob"><span>◐ Pago sem OB</span><strong>${R$(t.semOB)}</strong><small>Processado, aguardando ordem bancária</small></div>
+        <div class="m-cinza"><span>Saldo do empenho</span><strong>${R$(t.saldo)}</strong><small>Empenhado ainda sem pagamento</small></div>
       </div>`;
 
-    // Notas de empenho
     const porNE = c.nes.slice().sort().map(ne => { const ll = l.filter(x => x.ne === ne); return { ne, ll, t: totais(ll) }; });
     let n = 0;
     document.getElementById('cEmp').innerHTML = `<div class="tab-tit"><b>Notas de empenho</b><span>${porNE.length} empenho(s) · valores do SIAFE (já líquidos de anulações)</span></div>
-      <div class="rolagem"><table><thead><tr><th>#</th><th>Empenho</th><th>Referência (observação)</th><th class="n">Empenhado</th><th class="n">Liquidado</th><th class="n">Pago</th>
-      <th class="n">Liquidado a pagar</th><th class="n">A liquidar</th><th class="n">% pago</th><th>Situação</th></tr></thead>
-      <tbody>${porNE.map(r => `<tr><td>${++n}</td><td class="mono" style="white-space:nowrap"><b>${H(r.ne)}</b><span class="fraco">${H(r.ll[0].processo)}</span></td>
+      <div class="rolagem"><table><thead><tr><th>#</th><th>Empenho</th><th>Referência (observação)</th><th class="n">Empenhado</th><th class="n">Pago</th>
+      <th class="n">Saldo do empenho</th><th class="n">% pago</th><th>Situação</th></tr></thead>
+      <tbody>${porNE.map(r => `<tr class="${r.t.semOB > 0 ? 'lin-sem' : ''}"><td>${++n}</td><td class="mono" style="white-space:nowrap"><b>${H(r.ne)}</b><span class="fraco">${H(r.ll[0].processo)}</span></td>
         <td><div class="obs" title="${H(r.ll[0].obs)}">${H(corta(semCT(r.ll[0].obs)))}</div></td>
-        <td class="n"><b>${R$(r.t.emp)}</b></td><td class="n">${R$(r.t.liq)}</td><td class="n">${R$(r.t.pago)}</td>
-        <td class="n">${r.t.aPagar ? R$(r.t.aPagar) : '—'}</td><td class="n">${r.t.aLiq ? R$(r.t.aLiq) : '—'}</td>
-        <td class="n">${minibar(r.t.perc)}</td><td>${situacaoNE(r.t)}</td></tr>`).join('')}</tbody>
-      <tfoot><tr><td colspan="3">TOTAL</td><td class="n">${R$(t.emp)}</td><td class="n">${R$(t.liq)}</td><td class="n">${R$(t.pago)}</td><td class="n">${R$(t.aPagar)}</td><td class="n">${R$(t.aLiq)}</td><td class="n">${P2(t.perc)}</td><td></td></tr></tfoot></table></div>`;
+        <td class="n"><b>${R$(r.t.emp)}</b></td><td class="n">${celPago(r.t)}</td>
+        <td class="n">${r.t.saldo ? R$(r.t.saldo) : '—'}</td>
+        <td class="n">${minibar2(r.t)}</td><td>${situacaoNE(r.t)}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="3">TOTAL</td><td class="n">${R$(t.emp)}</td><td class="n">${celPago(t)}</td><td class="n">${R$(t.saldo)}</td><td class="n">${P2(t.perc)}</td><td></td></tr></tfoot></table></div>`;
 
-    // Liquidações e pagamentos
     const porNL = nls.map(nl => { const ll = l.filter(x => x.nl === nl);
-      return { nl, ll, ne: ll[0].ne, ordem: Math.min(...ll.map(x => x.ordem)), liq: soma(ll, 'liq'), pago: soma(ll, 'pago'),
-               cred: soma(ll.filter(x => x.ob && x.tipo !== 'Retenção'), 'pago'), ret: soma(ll.filter(x => x.ob && x.tipo === 'Retenção'), 'pago') }; })
+      return { nl, ll, ne: ll[0].ne, ordem: Math.min(...ll.map(x => x.ordem)), valor: soma(ll, 'liq'), ob: soma(ll, 'pago'),
+               cred: soma(ll.filter(x => x.ob && !ehRet(x)), 'pago'), ret: soma(ll.filter(x => x.ob && ehRet(x)), 'pago') }; })
       .sort((a, b) => a.ordem - b.ordem);
-    document.getElementById('cLiq').innerHTML = `<div class="tab-tit"><b>Liquidações e pagamentos</b><span>Cada liquidação (NL) com as ordens bancárias emitidas · ordem do relatório SIAFE</span></div>
-      ${porNL.length ? `<div class="rolagem"><table><thead><tr><th>Liquidação</th><th>Empenho</th><th class="n">Liquidado</th><th class="n">Pago ao credor</th><th class="n">Retenções</th>
+    document.getElementById('cLiq').innerHTML = `<div class="tab-tit"><b>Pagamentos</b><span>Cada pagamento processado (nota de liquidação) e as ordens bancárias emitidas</span></div>
+      ${porNL.length ? `<div class="rolagem"><table><thead><tr><th>Nota de liquidação</th><th>Empenho</th><th class="n">Valor pago</th><th class="n">✓ Com OB</th><th class="n">◐ Sem OB</th>
       <th>Ordens bancárias</th><th>Situação</th></tr></thead>
       <tbody>${porNL.map(r => {
-        const obs = r.ll.filter(x => x.ob).map(x => `<li class="${x.tipo === 'Retenção' ? 'ab' : 'ok'}">${x.tipo === 'Retenção' ? '↳' : '✓'} <span class="mono">${H(x.ob)}</span> — ${R$(x.pago)}${x.tipo === 'Retenção' ? ` <span class="fraco" style="display:inline">${H((x.retencao || '').replace(/^[\d.*\/-]+\s*-\s*/, ''))}</span>` : ''}</li>`).join('');
-        const sit = cent(r.pago) >= cent(r.liq) ? '<span class="tag t-pago">Pago</span>' : r.pago ? '<span class="tag t-ab">Parcialmente pago</span>' : '<span class="tag t-ab">A pagar</span>';
-        return `<tr><td class="mono"><b>${H(r.nl)}</b></td><td class="mono">${H(r.ne)}</td><td class="n">${R$(r.liq)}</td><td class="n">${R$(r.cred)}</td><td class="n">${R$(r.ret)}</td>
-          <td>${obs ? `<ul class="vinc">${obs}</ul>` : '<span class="fraco">Sem ordem bancária</span>'}</td><td>${sit}</td></tr>`; }).join('')}</tbody>
-      <tfoot><tr><td colspan="2">TOTAL</td><td class="n">${R$(t.liq)}</td><td class="n">${R$(aoCredor)}</td><td class="n">${R$(ret)}</td><td colspan="2">Pago: ${R$(t.pago)} · a pagar: ${R$(t.aPagar)}</td></tr></tfoot></table></div>`
-      : '<div class="vazio">Nenhuma liquidação registrada.</div>'}`;
+        const sem = dif(r.valor, r.ob);
+        const obs = r.ll.filter(x => x.ob).map(x => `<li class="${ehRet(x) ? 'ab' : 'ok'}">${ehRet(x) ? '↳' : '✓'} <span class="mono">${H(x.ob)}</span> — ${R$(x.pago)}${ehRet(x) ? ` <span class="fraco" style="display:inline">${H(nomeRet(x.retencao))}</span>` : ''}</li>`).join('');
+        const sit = sem <= 0 ? '<span class="tag t-pago">✓ Pago com OB</span>' : r.ob ? '<span class="tag t-semob">Pago · ◐ OB parcial</span>' : '<span class="tag t-semob">Pago · ◐ sem OB</span>';
+        return `<tr class="${sem > 0 ? 'lin-sem' : ''}"><td class="mono"><b>${H(r.nl)}</b></td><td class="mono">${H(r.ne)}</td><td class="n"><b>${R$(r.valor)}</b></td>
+          <td class="n">${r.ob ? R$(r.ob) : '—'}${r.ob ? `<span class="fraco">credor ${R$(r.cred)} · retenções ${R$(r.ret)}</span>` : ''}</td>
+          <td class="n">${sem > 0 ? `<span class="val-sem">${R$(sem)}</span>` : '—'}</td>
+          <td>${obs ? `<ul class="vinc">${obs}</ul>` : '<span class="fraco">◐ Nenhuma ordem bancária emitida</span>'}</td><td>${sit}</td></tr>`; }).join('')}</tbody>
+      <tfoot><tr><td colspan="2">TOTAL</td><td class="n">${R$(t.pago)}</td><td class="n">${R$(t.ob)}</td><td class="n">${R$(t.semOB)}</td><td colspan="2">✓ com OB ${P2(t.pago ? t.ob / t.pago : null)} · ◐ sem OB ${P2(t.pago ? t.semOB / t.pago : null)}</td></tr></tfoot></table></div>`
+      : '<div class="vazio">Nenhum pagamento registrado.</div>'}`;
 
-    // Retenções
-    const rets = pagos.filter(x => x.tipo === 'Retenção'), ben = new Map();
+    const rets = pagos.filter(ehRet), ben = new Map();
     rets.forEach(x => { const k = x.retencao || 'Não informado'; ben.set(k, (ben.get(k) || []).concat(x)); });
     const linhasR = [...ben.entries()].map(([k, ll]) => ({ k, v: soma(ll, 'pago'), n: ll.length })).sort((a, b) => b.v - a.v);
-    document.getElementById('cRet').innerHTML = `<div class="tab-tit"><b>Retenções por beneficiário</b><span>Valores pagos por PD de retenção</span></div>
+    document.getElementById('cRet').innerHTML = `<div class="tab-tit"><b>Retenções por beneficiário</b><span>Retenções com ordem bancária emitida</span></div>
       ${linhasR.length ? `<div class="rolagem"><table><thead><tr><th>Beneficiário da retenção</th><th class="n">Ordens bancárias</th><th class="n">Valor</th><th class="n">% das retenções</th></tr></thead>
       <tbody>${linhasR.map(r => `<tr><td>${H(r.k)}</td><td class="n">${r.n}</td><td class="n">${R$(r.v)}</td><td class="n">${minibar(ret ? r.v / ret : null)}</td></tr>`).join('')}</tbody>
       <tfoot><tr><td>TOTAL</td><td class="n">${rets.length}</td><td class="n">${R$(ret)}</td><td></td></tr></tfoot></table></div>` : '<div class="vazio">Sem retenções registradas.</div>'}`;
